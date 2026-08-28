@@ -11,17 +11,36 @@
 # ATENÇÃO: confirme com a Anthropic e a OpenAI se o uso pretendido cabe
 # nos termos da assinatura antes de ligar rodízio. Ver README.
 
+# O config_dir é um diretório PRÓPRIO da esteira, não o ~/.claude da pessoa.
+# Isso é de propósito: apontar para o ~/.claude do dia a dia faz o agente
+# herdar settings, hooks e plugins do humano — comportamento que ninguém
+# declarou. Diretório separado carrega só a credencial.
+#
+# ativo: true só depois de o smoke_test daquela conta passar. Conta marcada
+# ativa sem autenticação faz a demanda morrer no meio, não na largada.
+
 pessoas:
+  - id: nicolas
+    nome: Nicolas
+    email: nicolas.bastos@andrademaia.com
+    contas:
+      claude:
+        config_dir: ~/.esteira-auth/nicolas/claude
+        ativo: false   # autenticar e virar para true (ver README, Dia 1)
+      codex:
+        config_dir: ~/.esteira-auth/nicolas/codex
+        ativo: false   # autenticar e virar para true
+
   - id: joao
     nome: João
     email: joao@andrademaia.com.br
     contas:
       claude:
         config_dir: ~/.esteira-auth/joao/claude
-        ativo: true
+        ativo: false
       codex:
         config_dir: ~/.esteira-auth/joao/codex
-        ativo: true
+        ativo: false
 
   - id: pessoa2
     nome: Pessoa 2

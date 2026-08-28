@@ -84,6 +84,13 @@ def rodar(tier, prompt, cwd, log_path, timeout_s, extra_env=None, conta=None,
     env_extra.update(_contas.env_para(conta))
 
     argv = shlex.split(rt["cmd"])
+    # Nem todo CLI aceita o prompt por stdin. O agy (Antigravity) espera o
+    # prompt como VALOR de -p; com stdin ele sai com 2 e imprime o usage.
+    # config.RUNTIMES já declarava stdin_prompt por runtime — aqui ele passa
+    # a valer. Prompt em argv aparece no `ps`: só para quem não tem stdin.
+    via_stdin = rt.get("stdin_prompt", True)
+    if not via_stdin:
+        argv.append(prompt)
     inicio = time.time()
     timeout = False
 
@@ -95,13 +102,15 @@ def rodar(tier, prompt, cwd, log_path, timeout_s, extra_env=None, conta=None,
         try:
             proc = subprocess.Popen(
                 argv, cwd=str(cwd), env=_env(env_extra),
-                stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT,
+                stdin=subprocess.PIPE if via_stdin else subprocess.DEVNULL,
+                stdout=log, stderr=subprocess.STDOUT,
                 text=True, start_new_session=True,
             )
             if on_start:
                 on_start(proc.pid)
             try:
-                proc.communicate(input=prompt, timeout=timeout_s)
+                proc.communicate(input=prompt if via_stdin else None,
+                                 timeout=timeout_s)
                 codigo = proc.returncode
             except subprocess.TimeoutExpired:
                 timeout = True

@@ -135,6 +135,15 @@ O código de saída deles também não vale nada. Por isso o
 `esteira-delegate` te diz **quais arquivos mudaram** — esse é o veredito.
 Nada mudou no disco = falhou de verdade. Mudou = fez algo, e você confere.
 
+Um sintoma vale reconhecer: **`opencode` roda em poucos segundos e não
+muda nada no disco, duas vezes seguidas.** Isso normalmente não é a
+sub-task — é o modelo free que saiu do ar. Não insista e não tente
+consertar a configuração. Troque para `agy` e registre:
+
+    esteira-nota "opencode voltou sem tocar disco 2x; suspeita de modelo free fora do ar"
+
+Quem opera a esteira confere a lista de modelos. Não é o seu trabalho.
+
 ### Nunca use LLM para
 
 Contar arquivo · achar definição · listar rota · ver o que mudou.

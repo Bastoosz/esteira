@@ -45,23 +45,61 @@ para o GitHub (saída).
 
 ## Subir
 
-    python -m venv .venv && source .venv/bin/activate
-    pip install -r requirements.txt
+    python3 -m venv .venv
+    .venv/bin/pip install -r requirements.txt
     cp .env.example .env          # ajuste os comandos dos CLIs
     cp -r projects/_exemplo projects/<seu-projeto>
 
-    # autenticar cada conta num diretório próprio
-    mkdir -p ~/.esteira-auth/joao/claude ~/.esteira-auth/joao/codex
-    CLAUDE_CONFIG_DIR=~/.esteira-auth/joao/claude claude
-    CODEX_HOME=~/.esteira-auth/joao/codex codex
-    # marque ativo: true em contas.yaml
+    # NENHUM código Python lê o .env. Carregue você:
+    set -a; . ./.env; set +a      # ou EnvironmentFile= no systemd (Dia 3)
 
-    python board.py                          # http://localhost:5000
-    python -m esteira.worker                 # outro terminal
-    python -m esteira.vigia                  # outro terminal
+    # autenticar cada conta num diretório próprio
+    mkdir -p ~/.esteira-auth/<pessoa>/claude ~/.esteira-auth/<pessoa>/codex
+    chmod 700 ~/.esteira-auth ~/.esteira-auth/<pessoa>
+    CLAUDE_CONFIG_DIR=~/.esteira-auth/<pessoa>/claude claude   # faz login
+    CODEX_HOME=~/.esteira-auth/<pessoa>/codex codex            # faz login
+    # marque ativo: true em contas.yaml SÓ depois do smoke passar:
+    .venv/bin/python -c "import sys;sys.path.insert(0,'.');\
+from esteira import runner,contas;\
+print(runner.smoke_test('lead', contas.disponiveis('claude')[0]))"
+
+    .venv/bin/python board.py                # http://localhost:5000
+    .venv/bin/python -m esteira.worker       # outro terminal
+    .venv/bin/python -m esteira.vigia        # outro terminal
+
+Diretório de autenticação PRÓPRIO da esteira, não o `~/.claude` da pessoa:
+apontar para o do dia a dia faz o agente herdar settings, hooks e plugins
+do humano — comportamento que ninguém declarou e que você vai debugar às
+2h da manhã.
 
 Só o board sobe por padrão com a demanda de exemplo `1001` para você ver
 o formato. Apague `demands/1001/` quando for valer.
+
+## Estado real desta máquina — conferido no Dia 1 (2026-08-28)
+
+Cada linha foi provada com `runner.smoke_test(tier)`, não lida no `--help`.
+
+| tier | CLI | veredito |
+|---|---|---|
+| `lead` | claude 2.1.250 | OK — exige `--verbose` junto com `stream-json` |
+| `codex` | codex-cli 0.150.1 | OK — `-s workspace-write`, modelo gpt-5.4 |
+| `opencode` | opencode 1.18.18 | OK — `--auto` + `-m` obrigatórios |
+| `agy` | Antigravity CLI | OK — prompt em **argv**, não em stdin |
+| `orca` | orca 1.4.190 | não é runtime; ver "Sobre o Orca" |
+
+Três coisas que só aparecem quando você roda:
+
+1. **`agy` não lê prompt de stdin.** Ele quer o prompt como valor de `-p`;
+   com stdin sai com 2 e imprime o usage. `config.RUNTIMES` já declarava
+   `stdin_prompt` por runtime — o `runner.py` passou a respeitar.
+2. **Modelo free do OpenCode sai do ar sem aviso.** O default do
+   `~/.config/opencode/opencode.jsonc` (`deepseek-v4-flash-free`) já não
+   existe; `hy3-free` e `mimo-v2.5-free` foram verificados escrevendo em
+   disco. Confira com `opencode models | grep -- -free` antes de culpar
+   a esteira.
+3. **`n8n` não está instalado nesta máquina.** Dia 2 em diante depende
+   dele. Até subir, `esteira-ask` e `esteira-deliver` não têm para onde
+   mandar o e-mail.
 
 ## Contas — leia antes de ligar rodízio
 

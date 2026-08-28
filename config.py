@@ -48,20 +48,36 @@ EXIT_BLOQUEADO = 43  # falta credencial/acesso externo
 # === Runtimes de agente ===
 # Assinaturas Claude e Codex. Antigravity e OpenCode para sub-task.
 # PROIBIDO: OpenRouter pago para rodar agente.
-# {prompt_file} e {cwd} são substituídos pelo runner.
+#
+# Os defaults abaixo foram conferidos contra os CLIs instalados em
+# 2026-08-28 (ver armadilhas.md). Flag de CLI muda sem avisar: quando o
+# smoke_test cair, é aqui e no .env que se conserta — não no worker.
 RUNTIMES = {
     "lead": {
-        "cmd": os.getenv("CMD_LEAD", "claude -p --output-format stream-json"),
+        # --verbose é obrigatório junto com stream-json em modo -p.
+        # bypassPermissions: em -p a ferramenta não aprovada é NEGADA (não
+        # espera), então sem isso o líder não roda esteira-nota/ask/deliver.
+        "cmd": os.getenv(
+            "CMD_LEAD",
+            "claude -p --output-format stream-json --verbose "
+            "--permission-mode bypassPermissions"),
         "stdin_prompt": True,
         "descricao": "Claude Code — planeja, integra, revisa",
     },
     "codex": {
-        "cmd": os.getenv("CMD_CODEX", "codex exec"),
+        # -s workspace-write deixa escrever no cwd sem aprovação.
+        # --skip-git-repo-check: workspace de demanda não é sempre repo git.
+        "cmd": os.getenv("CMD_CODEX",
+                         "codex exec -s workspace-write --skip-git-repo-check"),
         "stdin_prompt": True,
         "descricao": "Codex — implementação alternativa, revisão cruzada",
     },
     "opencode": {
-        "cmd": os.getenv("CMD_OPENCODE", "opencode run"),
+        # --auto aprova permissão sozinho; sem isso não escreve arquivo.
+        # -m é obrigatório: modelo free sai do ar e o default do
+        # ~/.config/opencode/opencode.jsonc envelhece. Só id com '-free'.
+        "cmd": os.getenv("CMD_OPENCODE",
+                         "opencode run --auto -m opencode/hy3-free"),
         "stdin_prompt": True,
         "descricao": "OpenCode com modelo free — sub-tasks pequenas",
         # Reclama de crédito e mesmo assim trabalha. Código de saída não
@@ -69,15 +85,19 @@ RUNTIMES = {
         "exit_confiavel": False,
     },
     "agy": {
-        # PREENCHER: comando headless do Antigravity no ambiente de vocês.
-        "cmd": os.getenv("CMD_AGY", ""),
-        "stdin_prompt": True,
+        # Antigravity: o prompt é o VALOR de -p, não vem por stdin.
+        # Com stdin ele sai com 2 e imprime o usage. Ver stdin_prompt abaixo.
+        "cmd": os.getenv("CMD_AGY", "agy -p"),
+        "stdin_prompt": False,
         "descricao": "Antigravity — sub-tasks pequenas",
         "exit_confiavel": False,
     },
     "orca": {
-        # PREENCHER se for usar o Orca como runtime headless (orca serve).
-        # Orca é um ADE de desktop; confirme a invocação sem interface antes.
+        # VAZIO DE PROPÓSITO. Orca 1.4.190 é ADE de desktop: não tem
+        # invocação "prompt entra, arquivo sai". Ele orquestra por
+        # `orca orchestration worker-start --agent claude|codex`, que abre
+        # terminal supervisionado — útil para humano, não como runtime da
+        # esteira. Não preencha sem provar prompt→disco sem interface.
         "cmd": os.getenv("CMD_ORCA", ""),
         "stdin_prompt": True,
         "descricao": "Orca — orquestra outros CLIs em worktrees",

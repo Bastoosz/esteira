@@ -40,6 +40,13 @@ Entrega rápida ganha de solução completa. Sempre.
 | Sub-tasks avulsas via API | **OpenRouter — só modelos free** |
 | LLM dentro do código que você **escreve** | OpenRouter, conforme o Guia de Stacks |
 
+Regra de manutenção, aprendida no Dia 1: **id de modelo free não é
+configuração estável, é validade.** Eles saem do ar sem aviso e o CLI
+falha de um jeito que parece bug da esteira. Antes de investigar qualquer
+coisa em `opencode`/`agy`, rode `opencode models | grep -- -free` e
+confirme que o id do `.env` ainda existe. Isso é ajuste de `.env`, nunca
+de código.
+
 **Proibido: modelo pago via API do OpenRouter para rodar o agente.**
 O trabalho grande vai nas assinaturas Claude e Codex da equipe. Elas são
 fixas — o que limita é rate limit e tempo, não dinheiro. Por isso os tetos
