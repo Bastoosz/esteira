@@ -207,7 +207,7 @@ Isso era bloqueante para o Dia 0 inteiro: os dois entregáveis têm
 `check_ds.sh` verde como critério de aceite, e o `BUILD.md` Dia 4 manda
 pendurar esse mesmo script no `check.sh` de cada projeto.
 
-### Mudanças até agora
+### A extração mecânica do DS
 
 Novo repo `template-stack1-flask-htmx` em `/home/nicolas/orca/`:
 
@@ -230,4 +230,142 @@ Dois `codex` em paralelo, pelo `runner.rodar` da própria esteira
 |---|---|---|---|
 | template | `orca/template-stack1-flask-htmx` | 796s | `codigo=0` |
 | `projects/amplia` | `esteira` | 409s | `codigo=0` |
+
+### Entregue: `projects/amplia/` — item 3 do Dia 0
+
+Projeto real escolhido: **AMPLIA** (`orca/AMPLIA.APP_vers-o-2`,
+`AndradeMaia-Tech`) — plataforma de inteligência jurídica do escritório,
+*backend* FastAPI na AWS, *frontend* na Vercel. É o único repo AM já
+registrado no Orca e tem 8 *worktrees* de trabalho ativo: projeto vivo,
+não exemplo.
+
+| arquivo | linhas |
+|---|---|
+| `AGENTS.md` | 89 (teto 150) |
+| `check.sh` | 98, executável |
+| `context/dominio.md` | 47 |
+| `context/decisoes.md` | 35 |
+| `context/armadilhas.md` | 35 |
+
+Verificado **por mim**, não pelo relato do agente:
+
+    bash projects/amplia/check.sh /home/nicolas/orca/AMPLIA.APP_vers-o-2
+    → 822 passed, 19 skipped, 38 xfailed em 101s     saída 0
+    bash scripts/check_ds.sh projects/amplia         → [ds] ok, saída 0
+
+O AMPLIA ficou intacto: nada com `mtime` posterior ao início do worker. As
+duas mudanças que aparecem no `git status` dele são de 2026-08-14,
+pré-existentes.
+
+O `armadilhas.md` só tem armadilha comprovada lendo o repo — inclusive
+duas que valem ouro: o `tiktoken` baixa o vocabulário na coleta dos
+testes, e as métricas de requisição do ALB ficam zeradas porque o tráfego
+entra por Cloudflare Tunnel. Duas marcações `REGRA-JURIDICA` onde o agente
+se recusou a escrever contagem de prazo.
+
+#### A prosa do agente e a realidade divergiram — e o `check.sh` acertou nos dois
+
+O relatório do worker diz que os testes do *backend* **não rodaram**: a
+coleta exige o vocabulário `cl100k_base` do `tiktoken`, sem cache e sem
+rede. Na minha execução, **822 testes passaram**.
+
+Os dois estão certos. O sandbox do codex (`-s workspace-write`) não tem
+rede; o meu shell tem. O que importa é que o `check.sh` **degradou
+explicitamente** num ambiente e **rodou de verdade** no outro, sem
+quebrar em nenhum — que era o pedido.
+
+É a regra do `runner.py` valendo na prática: a prosa do agente não é o
+veredito. Se eu tivesse acreditado no relatório, teria concluído que o
+gate não roda. Ele roda.
+
+### Entregue: `template-stack1-flask-htmx` — item 1 do Dia 0
+
+Repo com 2 commits. Sem remote ainda.
+
+    static/ds/tokens/tokens.css        72 tokens AM (canônico, não se edita)
+    static/ds/tokens/fontes.css        ponte do --font-montserrat
+    static/ds/tokens/espacamento.css   --space-1..7 e --largura-max
+    static/ds/styles.css               396 linhas, camada institucional
+    static/ds/assets/                  Sansation 6 pesos + 10 PNGs de marca
+    templates/base.html                liga os 4 CSS na ordem + HTMX 2.0.7
+    templates/_partials/               9 macros Jinja
+    templates/demo.html                7 seções cobrindo os 9 partials
+    app.py 22 linhas · config.py 16 · check.sh · scripts/check_ds.sh
+    requirements.txt · .env.example · README.md · RELATORIO-DIA0.md
+
+Verificado **por mim**:
+
+    bash scripts/check_ds.sh .   → [ds] ok, saída 0
+    bash check.sh                → saída 0 (compileall + import do app + ds)
+    app na 5001, demo renderiza:
+      am-btn 27 · am-box 20 · am-tag 5 · upload-field 15 · badge 10
+      3 <table>, 11 <th> · input 15 · select 9 · checkbox 3
+    tokens.css, fontes.css, espacamento.css, styles.css e Sansation → 200
+    ordem dos CSS: tokens → fontes → espacamento → styles ✓
+
+O worker traduziu do `am-identity.css` só o genérico e registrou o que
+deixou de fora: as classes de produto (`encantometro`, `phase-trail`,
+`mural`, `wow-*`, `checklist`, `client-table`, `roadmap`) e três
+auxiliares — `.am-num-box`, `.am-seal`, `.am-pattern`. As duas últimas são
+elementos de marca; vale reavaliar se entram numa segunda passada.
+
+Ele resolveu a regra de itálico melhor do que eu pedi: em vez de encher a
+demo de `<i>`, manteve palavra estrangeira **só em nome técnico** (macro,
+classe CSS, `{% import %}`) e escreveu toda a cópia visível em PT-BR — o
+que o `PADROES.md` permite explicitamente. Zero escapes `ds-ok`.
+
+Honesto no relatório dele: não conseguiu abrir soquete local nem comitar,
+por permissão do sandbox do codex. Provou pelo cliente WSGI (200). A prova
+pela porta e o commit fiz eu.
+
+#### Correção que o worker não pegou
+
+`--font-montserrat` continuava órfão. Criado
+`static/ds/tokens/fontes.css` definindo-o, carregado logo depois do
+`tokens.css` — que fica intocado porque é canônico.
+
+### Dívidas que o Dia 0 deixou
+
+1. **Montserrat não auto-hospedada.** A Sansation está em
+   `assets/fonts/`; a Montserrat não, porque o app de origem a pegava do
+   Google Fonts em tempo de *build*, e ela não existe nesta máquina
+   (`fc-list` vazio). Até decidir entre auto-hospedar ou `<link>`,
+   `--font-display` cai em Segoe UI / `sans-serif`.
+2. **`base.html` do board da esteira está fora do DS.** Tema claro, nomes
+   de token inventados, `--radius: 2px` onde o DS é `0px` + chanfro. O
+   template agora é a referência correta; o board é que divergiu.
+3. **`template-stack1-flask-htmx` sem remote.** Só git local.
+4. **`python-dotenv` no template.** A esteira não usa (carrega `.env` por
+   `EnvironmentFile=`); o template usa. Divergência pequena e deliberada
+   do worker, mas é uma dependência a mais no molde de todo projeto
+   Stack 1.
+5. **HTMX por CDN** (`cdn.jsdelivr.net`), como no board. Dependência
+   externa no momento de renderizar.
+6. **`template-stack2-fastapi` não existe.** O `STACKS.md` promete.
+
+### Nota de orquestração
+
+A primeira tentativa foi por `orca orchestration worker-start --agent
+codex`. Não funcionou, em três degraus:
+
+1. `--repo` e `--display-name` são recusados com `--worktree current`;
+2. `Agent startup blocked: codex-interactive-prompt` — resolvido com
+   `orca agent hooks prepare-codex` e com `trust_level = "trusted"` para
+   as duas pastas novas em `~/.codex/config.toml` (*backup* em
+   `config.toml.pre-esteira`);
+3. mesmo assim, `agent_prompt_stalled`: o Orca abriu um terminal e digitou
+   o *briefing* inteiro **no bash**, linha por linha, em vez de dentro do
+   codex. O repo não sujou (`git status` limpo), mas o agente nunca subiu.
+
+A confirmação veio depois, pela fila de mensagens: as duas rejeições que
+chegaram eram o **bash executando os *placeholders* do preâmbulo** —
+`worker-done` chamado com `<3-sentence summary…>` e `path/a`, `path/b`
+literais. Orca recusou porque o dispatch já estava encerrado. Fila zerada
+com `--ack`.
+
+Troquei para o `runner.rodar` da esteira — que é o primitivo que o
+`esteira-delegate` já usa e que foi provado no Dia 1 escrevendo em disco.
+Vale como sinal: **o `CMD_ORCA` vazio no `config.py` estava certo.** O
+Orca serve como IDE, não como runtime de agente sem humano dirigindo, e
+isso agora está medido, não suposto.
 
