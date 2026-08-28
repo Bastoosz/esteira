@@ -87,7 +87,14 @@ RUNTIMES = {
     "agy": {
         # Antigravity: o prompt é o VALOR de -p, não vem por stdin.
         # Com stdin ele sai com 2 e imprime o usage. Ver stdin_prompt abaixo.
-        "cmd": os.getenv("CMD_AGY", "agy -p"),
+        #
+        # --dangerously-skip-permissions: sem isso o agy roda, responde e
+        # NÃO escreve nada — em headless ele auto-nega a permissão 'command'
+        # e some sem erro. É a mesma decisão de confiança que o codex
+        # (approval: never) e o opencode (--auto) já carregam acima. Ele não
+        # tem flag de config-dir, então a alternativa seria mexer no
+        # settings.json global do humano — pior, porque vaza entre projetos.
+        "cmd": os.getenv("CMD_AGY", "agy -p --dangerously-skip-permissions"),
         "stdin_prompt": False,
         "descricao": "Antigravity — sub-tasks pequenas",
         "exit_confiavel": False,
