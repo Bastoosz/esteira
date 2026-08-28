@@ -32,8 +32,24 @@ while IFS= read -r f; do
   registrar "fonte fora do DS" "$f" "$(grep -niE 'font-family[[:space:]]*:' "$f" \
     | grep -viE '(Montserrat|Sansation|var\(--font)' | sem_escape)"
 
-  registrar "estrangeirismo sem itálico" "$f" "$(grep -nioE ">[^<]*\b(upload|download|dashboard|login|logout|preview|deploy|status|feedback|report|export|import|link)\b[^<]*<" "$f" 2>/dev/null \
-    | grep -viE '<(i|em)[ >]' | sem_escape)"
+  # A palavra estrangeira só é desvio quando NÃO está marcada. Por isso
+  # apagamos primeiro os trechos já marcados (<i>, <em>, class="foreign") e
+  # só então procuramos. A versão anterior fazia o contrário — procurava e
+  # depois tentava excluir linhas com '<i' — e não funcionava: o casamento
+  # é >...< , então o fragmento achado é ">upload<", que nunca contém a tag
+  # que o envolve. Resultado: <p><i>upload</i></p> era reprovado, e o gate
+  # ficava impossível de passar em qualquer página que citasse a palavra.
+  #
+  # O sed apaga o CONTEÚDO da linha mas nunca a linha, para o número de
+  # linha do grep continuar valendo. Por isso 'ds-ok' vira linha em branco
+  # aqui em vez de ser filtrado depois: esta regra usa grep -o, então o
+  # sem_escape nunca via o comentário de escape.
+  registrar "estrangeirismo sem itálico" "$f" "$(
+    sed -E 's/.*ds-ok.*//
+            s#<(i|em)\b[^>]*>[^<]*</(i|em)>##g
+            s#<([a-z]+)\b[^>]*class="[^"]*\bforeign\b[^"]*"[^>]*>[^<]*</\1>##g' \
+        "$f" 2>/dev/null \
+    | grep -nioE ">[^<]*\b(upload|download|dashboard|login|logout|preview|deploy|status|feedback|report|export|import|link)\b[^<]*<")"
 
 done < <(alvos)
 
