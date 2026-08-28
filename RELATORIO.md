@@ -89,7 +89,7 @@ host e **zero** com o diretório da esteira.
 
 ---
 
-## Dia 0 — template e projeto real · 2026-08-28 · EM ANDAMENTO
+## Dia 0 — template e projeto real · 2026-08-28 · FECHADO
 
 ### O achado que muda o item 1 do `BUILD.md`
 
@@ -221,81 +221,13 @@ Novo repo `template-stack1-flask-htmx` em `/home/nicolas/orca/`:
 Total do DS extraído: **1,2 MB** — contra os ~4 MB que o `BUILD.md`
 estimava, porque o pacote original tinha mais do que os tokens e a marca.
 
-### Em execução agora
+### Como foi executado
 
 Dois `codex` em paralelo, pelo `runner.rodar` da própria esteira
 (assinatura `nicolas:codex`), cada um no seu `cwd`:
 
-| tarefa | `cwd` | entrega |
-|---|---|---|
-| template | `orca/template-stack1-flask-htmx` | `styles.css`, `espacamento.css`, `base.html`, **9 partials**, `demo.html`, `app.py`, `check.sh` |
-| projeto real | `esteira` | `projects/amplia/`: `AGENTS.md`, `check.sh` que roda, `context/{dominio,decisoes,armadilhas}.md` |
+| tarefa | `cwd` | duração | saída |
+|---|---|---|---|
+| template | `orca/template-stack1-flask-htmx` | 796s | `codigo=0` |
+| `projects/amplia` | `esteira` | 409s | `codigo=0` |
 
-Projeto real escolhido: **AMPLIA** (`orca/AMPLIA.APP_vers-o-2`,
-`AndradeMaia-Tech`) — plataforma de inteligência jurídica do escritório,
-*backend* FastAPI na AWS, *frontend* na Vercel. É o único repo AM já
-registrado no Orca e tem 8 *worktrees* de trabalho ativo, ou seja, é
-projeto vivo e não exemplo.
-
-Critério de aceite dos dois, do próprio `BUILD.md`: **`check.sh` que não
-roda = projeto que não entra na esteira.** Cada um tem que colar a saída
-real do `check.sh` no seu `RELATORIO-DIA0.md`.
-
-### Entregue: `projects/amplia/` — item 3 do Dia 0 FECHADO
-
-Projeto real escolhido: **AMPLIA** (`orca/AMPLIA.APP_vers-o-2`,
-`AndradeMaia-Tech`). É o único repo AM já registrado no Orca e tem 8
-*worktrees* de trabalho ativo — projeto vivo, não exemplo.
-
-| arquivo | linhas |
-|---|---|
-| `AGENTS.md` | 89 (teto 150) |
-| `check.sh` | 98, executável |
-| `context/dominio.md` | 47 |
-| `context/decisoes.md` | 35 |
-| `context/armadilhas.md` | 35 |
-
-Verificado **por mim**, não pelo relato do agente:
-
-    bash projects/amplia/check.sh /home/nicolas/orca/AMPLIA.APP_vers-o-2
-    → 822 passed, 19 skipped, 38 xfailed em 101s     saída 0
-    bash scripts/check_ds.sh projects/amplia         → [ds] ok, saída 0
-
-O AMPLIA ficou intacto: nada com `mtime` posterior ao início do worker. As
-duas mudanças que aparecem no `git status` dele são de 2026-08-14,
-pré-existentes.
-
-#### A prosa do agente e a realidade divergiram — e o `check.sh` acertou nos dois
-
-O relatório do worker diz que os testes do *backend* **não rodaram**: a
-coleta exige o vocabulário `cl100k_base` do `tiktoken`, sem cache e sem
-rede. Na minha execução, **822 testes passaram**.
-
-Os dois estão certos. O sandbox do codex (`-s workspace-write`) não tem
-rede; o meu shell tem. O que importa é que o `check.sh` **degradou
-explicitamente** num ambiente e **rodou de verdade** no outro, sem
-quebrar em nenhum — que era o pedido.
-
-É a regra do `runner.py` valendo na prática: a prosa do agente não é o
-veredito. Se eu tivesse acreditado no relatório, teria concluído que o
-gate não roda. Ele roda.
-
-### Nota de orquestração
-
-A primeira tentativa foi por `orca orchestration worker-start --agent
-codex`. Não funcionou, em três degraus:
-
-1. `--repo` e `--display-name` são recusados com `--worktree current`;
-2. `Agent startup blocked: codex-interactive-prompt` — resolvido com
-   `orca agent hooks prepare-codex` e com `trust_level = "trusted"` para
-   as duas pastas novas em `~/.codex/config.toml` (*backup* em
-   `config.toml.pre-esteira`);
-3. mesmo assim, `agent_prompt_stalled`: o Orca abriu um terminal e digitou
-   o *briefing* inteiro **no bash**, linha por linha, em vez de dentro do
-   codex. O repo não sujou (`git status` limpo), mas o agente nunca subiu.
-
-Troquei para o `runner.rodar` da esteira — que é o primitivo que o
-`esteira-delegate` já usa e que foi provado no Dia 1 escrevendo em disco.
-Vale como sinal: **o `CMD_ORCA` vazio no `config.py` estava certo.** O
-Orca serve como IDE, não como runtime de agente sem humano dirigindo, e
-isso agora está medido, não suposto.
