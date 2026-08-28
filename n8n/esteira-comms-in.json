@@ -1,0 +1,312 @@
+{
+  "id": "esteira-comms-in-dia2",
+  "name": "esteira-comms-in",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "authentication": "microsoftOutlookOAuth2Api",
+        "event": "messageReceived",
+        "output": "fields",
+        "fields": [
+          "id",
+          "conversationId",
+          "subject",
+          "body",
+          "from",
+          "internetMessageId"
+        ],
+        "filters": {
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "f2-trigger",
+      "name": "Outlook: nova mensagem",
+      "type": "n8n-nodes-base.microsoftOutlookTrigger",
+      "typeVersion": 1,
+      "position": [
+        -900,
+        0
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "CONFIGURAR_OUTLOOK",
+          "name": "Outlook — Esteira"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent($json.id)}?$select=id,conversationId,subject,body,from,internetMessageHeaders,internetMessageId` }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "options": {}
+      },
+      "id": "f2-graph",
+      "name": "Buscar cabeçalhos completos no Graph",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -680,
+        0
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "CONFIGURAR_OUTLOOK",
+          "name": "Outlook — Esteira"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "esteira_comms",
+          "mode": "name"
+        },
+        "matchType": "anyCondition",
+        "filters": {},
+        "returnAll": true,
+        "orderBy": true,
+        "orderByColumn": "createdAt",
+        "orderByDirection": "DESC"
+      },
+      "id": "f2-tabela",
+      "name": "Carregar correlações",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -460,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// WORKER_BASE precisa bater com WORKER_BASE_URL do .env da esteira.\n// Ver n8n/COMO-IMPORTAR.md.\nconst WORKER_BASE = 'http://localhost:5000';\nconst msg = $('Buscar cabeçalhos completos no Graph').first().json;\nconst rows = $input.all().map(i => i.json).filter(r => r && r.reply_to);\nconst norm = (v) => String(v ?? '').trim().toLowerCase();\nconst headers = Object.fromEntries((msg.internetMessageHeaders ?? []).map(h => [norm(h.name), String(h.value ?? '')]));\nconst idsCabecalho = `${headers['in-reply-to'] ?? ''} ${headers.references ?? ''}`.match(/<[^>]+>|[^\\s]+/g) ?? [];\nlet registro = null;\nlet criterio = '';\nfor (const id of idsCabecalho) {\n  registro = rows.find(r => norm(r.internet_message_id) === norm(id));\n  if (registro) { criterio = 'In-Reply-To/References'; break; }\n}\nif (!registro && msg.conversationId) {\n  registro = rows.find(r => norm(r.conversation_id) === norm(msg.conversationId));\n  if (registro) criterio = 'conversationId';\n}\n// Caminho 3 — o assunto. É o último recurso, e por isso NÃO pode depender\n// da Data Table: se o banco do n8n for perdido ou reiniciado, toda pergunta\n// pendente ficaria órfã, que é exatamente o que o n8n/README.md promete que\n// não acontece. O assunto carrega tudo que é preciso.\n//\n// [esteira #1001-2] → demanda 1001, pergunta 2 → reply_to reconstruído.\n// O segundo número é o número da PERGUNTA (esteira-ask usa\n// proxima_pergunta_id), não a rodada. Confira em bin/esteira-ask e no\n// comm.envelope antes de mexer nisto.\nif (!registro) {\n  const m = String(msg.subject ?? '').match(/\\[esteira #(\\d+)-(\\d+)\\]/i);\n  if (m) {\n    const logico = `${m[1]}-${m[2]}`;\n    registro = rows.find(r => norm(r.logical_message_id) === norm(logico));\n    if (registro) {\n      criterio = 'assunto';\n    } else {\n      // Sem linha na tabela: reconstrói. Mesmo formato do comm.envelope,\n      // reply_to = {WORKER_BASE}/answer/{demanda}/{demanda}-{n}\n      registro = { reply_to: `${WORKER_BASE}/answer/${m[1]}/${logico}` };\n      criterio = 'assunto (reconstruído, sem Data Table)';\n    }\n  }\n}\nconst remetente = msg.from?.emailAddress?.address || msg.from?.emailAddress?.name || msg.sender?.emailAddress?.address || 'equipe';\nif (!registro) return [{ json: { casou: false, mensagem_id: msg.id, autor: remetente, assunto: msg.subject ?? '', motivo: 'Nenhum identificador conhecido casou.' } }];\nlet corpo = msg.body?.content ?? msg.bodyPreview ?? '';\nif (String(msg.body?.contentType ?? '').toLowerCase() === 'html') {\n  corpo = String(corpo).replace(/<br\\s*\\/?\\s*>/gi, '\\n').replace(/<\\/(p|div|li|h[1-6])>/gi, '\\n').replace(/<[^>]*>/g, ' ');\n  corpo = corpo.replace(/&nbsp;/gi, ' ').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&amp;/gi, '&').replace(/&quot;/gi, '\"').replace(/&#39;/gi, \"'\");\n}\ncorpo = String(corpo).split(/--- responda acima desta linha ---/i)[0];\ncorpo = corpo.split(/\\r?\\n/).filter(l => !/^\\s*>/.test(l)).join('\\n').trim();\nreturn [{ json: { casou: true, resposta: corpo, autor: remetente, reply_to: registro.reply_to, criterio, mensagem_id: msg.id, assunto: msg.subject ?? '' } }];"
+      },
+      "id": "f2-casar",
+      "name": "Casar mensagem e cortar corpo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.casou }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f2-if",
+      "name": "Mensagem identificada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        20,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.reply_to }}",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ resposta: $json.resposta, autor: $json.autor }) }}",
+        "options": {}
+      },
+      "id": "f2-post",
+      "name": "POST no reply_to do worker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        260,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "microsoftOutlookOAuth2Api",
+        "resource": "message",
+        "operation": "move",
+        "messageId": {
+          "__rl": true,
+          "value": "={{ $json.mensagem_id }}",
+          "mode": "id"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "CONFIGURAR_ID_PASTA_NAO_IDENTIFICADO",
+          "mode": "id"
+        }
+      },
+      "id": "f2-mover",
+      "name": "Mover para Esteira nao-identificado",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        120
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "CONFIGURAR_OUTLOOK",
+          "name": "Outlook — Esteira"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "microsoftTeamsOAuth2Api",
+        "resource": "channelMessage",
+        "operation": "create",
+        "teamId": {
+          "__rl": true,
+          "value": "CONFIGURAR_TEAM_ID",
+          "mode": "id"
+        },
+        "channelId": {
+          "__rl": true,
+          "value": "CONFIGURAR_CHANNEL_ID",
+          "mode": "id"
+        },
+        "contentType": "html",
+        "message": "={{ `<strong>⚠️ Resposta não identificada</strong><br>Assunto: ${$('Casar mensagem e cortar corpo').first().json.assunto}<br>Remetente: ${$('Casar mensagem e cortar corpo').first().json.autor}<br>A mensagem foi movida para Esteira/nao-identificado.` }}",
+        "options": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "f2-teams",
+      "name": "Avisar não identificado no Teams",
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        500,
+        120
+      ],
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "CONFIGURAR_TEAMS",
+          "name": "Teams — Esteira"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Outlook: nova mensagem": {
+      "main": [
+        [
+          {
+            "node": "Buscar cabeçalhos completos no Graph",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar cabeçalhos completos no Graph": {
+      "main": [
+        [
+          {
+            "node": "Carregar correlações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carregar correlações": {
+      "main": [
+        [
+          {
+            "node": "Casar mensagem e cortar corpo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Casar mensagem e cortar corpo": {
+      "main": [
+        [
+          {
+            "node": "Mensagem identificada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem identificada?": {
+      "main": [
+        [
+          {
+            "node": "POST no reply_to do worker",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mover para Esteira nao-identificado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mover para Esteira nao-identificado": {
+      "main": [
+        [
+          {
+            "node": "Avisar não identificado no Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b8e429a4-9bb4-4bce-ae12-ebaf865eaf22",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
