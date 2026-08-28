@@ -1,0 +1,56 @@
+# Contas de assinatura da equipe.
+#
+# ESTE ARQUIVO NÃO CONTÉM SEGREDO. Só aponta para o diretório onde cada
+# CLI guarda a própria autenticação. Os diretórios ficam fora do repo,
+# são do usuário do worker, e nunca entram no contexto do agente.
+#
+# Para autenticar uma conta:
+#   CLAUDE_CONFIG_DIR=~/.esteira-auth/joao/claude claude   # faz login
+#   CODEX_HOME=~/.esteira-auth/joao/codex codex            # faz login
+#
+# ATENÇÃO: confirme com a Anthropic e a OpenAI se o uso pretendido cabe
+# nos termos da assinatura antes de ligar rodízio. Ver README.
+
+pessoas:
+  - id: joao
+    nome: João
+    email: joao@andrademaia.com.br
+    contas:
+      claude:
+        config_dir: ~/.esteira-auth/joao/claude
+        ativo: true
+      codex:
+        config_dir: ~/.esteira-auth/joao/codex
+        ativo: true
+
+  - id: pessoa2
+    nome: Pessoa 2
+    email: pessoa2@andrademaia.com.br
+    contas:
+      claude:
+        config_dir: ~/.esteira-auth/pessoa2/claude
+        ativo: false
+      codex:
+        config_dir: ~/.esteira-auth/pessoa2/codex
+        ativo: false
+
+  - id: pessoa3
+    nome: Pessoa 3
+    email: pessoa3@andrademaia.com.br
+    contas:
+      claude: { config_dir: ~/.esteira-auth/pessoa3/claude, ativo: false }
+      codex:  { config_dir: ~/.esteira-auth/pessoa3/codex,  ativo: false }
+
+  - id: pessoa4
+    nome: Pessoa 4
+    email: pessoa4@andrademaia.com.br
+    contas:
+      claude: { config_dir: ~/.esteira-auth/pessoa4/claude, ativo: false }
+      codex:  { config_dir: ~/.esteira-auth/pessoa4/codex,  ativo: false }
+
+# Contas compartilhadas legitimamente (sem dono individual)
+compartilhadas:
+  openrouter_free:
+    # Só modelos free. Modelo pago aqui é proibido pelo PADROES.md.
+    env: OPENROUTER_API_KEY
+    ativo: true

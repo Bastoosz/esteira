@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""
+Roda a coisa de verdade e captura o artefato. Obrigatório antes de entregar.
+check.sh verde não prova nada para quem vai olhar o resultado.
+"""
+import argparse, shlex, shutil, subprocess, sys
+from pathlib import Path
+sys.path.insert(0, __file__.rsplit("/", 1)[0])
+from _comum import demanda_atual
+
+p = argparse.ArgumentParser()
+p.add_argument("--cmd", required=True)
+p.add_argument("--saida", required=True, help="arquivo gerado (vai para outbox/)")
+p.add_argument("--descricao", default="")
+a = p.parse_args()
+
+d = demanda_atual()
+r = subprocess.run(a.cmd, shell=True, capture_output=True, text=True, timeout=600)
+saida = Path(a.saida)
+
+if r.returncode != 0:
+    print(f"comando falhou (código {r.returncode}):\n{r.stderr[-2000:]}", file=sys.stderr)
+    d.log("agente", f"prova falhou: {a.cmd[:70]}")
+    sys.exit(1)
+if not saida.exists():
+    print(f"comando rodou mas não gerou {saida}", file=sys.stderr)
+    sys.exit(1)
+
+destino = d.dir / "outbox" / saida.name
+destino.parent.mkdir(parents=True, exist_ok=True)
+shutil.copy2(saida, destino)
+d.append_jsonl("provas.jsonl", {"cmd": a.cmd, "arquivo": saida.name,
+                                "bytes": destino.stat().st_size,
+                                "descricao": a.descricao})
+d.log("agente", f"prova gerada: {saida.name} ({destino.stat().st_size} bytes)")
+print(f"ok — {destino}")

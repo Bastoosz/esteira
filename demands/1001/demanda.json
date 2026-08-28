@@ -1,0 +1,20 @@
+{
+  "id": "1001",
+  "titulo": "Export XLSX do relatório de honorários",
+  "projeto": "_exemplo",
+  "origem": "email",
+  "remetente": "socio@andrademaia.com.br",
+  "estado": "EM_REVISAO",
+  "rodada": 2,
+  "criada_em": "2026-08-27T14:13:34",
+  "atualizada_em": "2026-08-27T14:13:34",
+  "branch": "agent/1001",
+  "pid": null,
+  "run_iniciado_em": null,
+  "dono": "joao",
+  "conta_atual": {
+    "nome": "João",
+    "tipo": "claude",
+    "chave": "joao:claude"
+  }
+}

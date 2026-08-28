@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}#{{ c.id }}{% endblock %}
+{% block conteudo %}
+<div class="linha1 bloco">
+  <span class="id">#{{ c.id }}</span>
+  <span class="titulo">{{ c.titulo }}</span>
+  <span class="chip">{{ c.projeto }}</span>
+  <span class="chip">{{ c.estado|lower|replace('_',' ') }}</span>
+  {% if c.conta %}<span class="chip conta">{{ c.conta_tipo }} de {{ c.conta }}</span>{% endif %}
+  <span class="meta"><a href="/" style="color:var(--am-gray-500)">← voltar</a></span>
+</div>
+
+{% if plano %}<h2>Plano</h2><div class="card"><div class="log">{{ plano }}</div></div>{% endif %}
+
+<h2>Execuções</h2>
+<table>
+  <tr><th>Rodada</th><th>Runtime</th><th>Conta</th><th>Código</th><th>Duração</th></tr>
+  {% for e in execucoes %}
+  <tr><td class="mono">{{ e.rodada }}</td><td class="mono">{{ e.tier }}</td>
+      <td>{{ e.conta }}</td>
+      <td class="mono">{{ e.codigo }}{% if e.timeout %} (timeout){% endif %}</td>
+      <td class="mono">{{ e.duracao_s }}s</td></tr>
+  {% else %}<tr><td colspan="5" class="vazio">nenhuma</td></tr>{% endfor %}
+</table>
+
+{% if delegacoes %}
+<h2>Sub-tasks</h2>
+<table>
+  <tr><th>Runtime</th><th>Conta</th><th>Papel</th><th>Tarefa</th><th>Código</th></tr>
+  {% for x in delegacoes %}
+  <tr><td class="mono">{{ x.tier }}</td><td>{{ x.conta }}</td><td class="mono">{{ x.papel }}</td>
+      <td>{{ x.task|curto(70) }}</td><td class="mono">{{ x.codigo }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+{% if decisoes %}
+<h2>Decisões</h2><div class="card">
+{% for x in decisoes %}<div class="nota"><span><span class="log">{{ x.ts }}</span> — {{ x.texto }}</span></div>{% endfor %}
+</div>{% endif %}
+
+<h2>Journal</h2><div class="card"><div class="log">{{ journal }}</div></div>
+{% endblock %}

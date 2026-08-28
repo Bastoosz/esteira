@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""Delega uma sub-task para outro runtime. Economiza contexto, não dinheiro."""
+import argparse, glob, hashlib, os, sys
+from pathlib import Path
+sys.path.insert(0, __file__.rsplit("/", 1)[0])
+from _comum import demanda_atual, config
+from esteira import runner, contas
+
+p = argparse.ArgumentParser()
+p.add_argument("--tier", required=True, choices=["codex", "opencode", "agy"])
+p.add_argument("--task", required=True)
+p.add_argument("--papel", default="", help="ex: subtask-teste")
+p.add_argument("--scope", default="", help="glob dos arquivos que pode tocar")
+a = p.parse_args()
+
+d = demanda_atual()
+briefing = []
+if a.papel:
+    f = config.PAPEIS_DIR / f"{a.papel}.md"
+    if f.exists():
+        briefing.append(f.read_text(encoding="utf-8"))
+if a.scope:
+    briefing.append(f"\nESCOPO — só toque em: {a.scope}\nQualquer arquivo fora disso é violação.")
+briefing.append(f"\nTAREFA:\n{a.task}")
+
+n = len(list((d.dir / 'runs').glob('sub-*.log'))) + 1
+log = d.dir / "runs" / f"sub-{n}.log"
+def _foto(padrao):
+    """Assinatura do que existe no escopo agora. É o oráculo objetivo:
+    opencode e agy reclamam de crédito e mesmo assim trabalham, então o
+    código de saída deles não decide nada — o disco decide."""
+    alvo = padrao or "**/*"
+    itens = []
+    for p in sorted(glob.glob(alvo, recursive=True)):
+        pp = Path(p)
+        if pp.is_file() and ".git" not in pp.parts:
+            st = pp.stat()
+            itens.append(f"{p}:{st.st_size}:{int(st.st_mtime)}")
+    return {i.rsplit(":", 2)[0]: i for i in itens}
+
+antes = _foto(a.scope)
+conta = contas.escolher(a.tier, dono_id=d.meta.get("dono"))
+res = runner.rodar(a.tier, "\n".join(briefing), cwd=Path.cwd(),
+                   log_path=log, timeout_s=config.TIMEOUT_SUBTASK_S, conta=conta)
+
+depois = _foto(a.scope)
+mudou = sorted(set(k for k in depois if antes.get(k) != depois[k]))
+sumiu = sorted(set(antes) - set(depois))
+fora = [f for f in mudou if a.scope and not Path(f).match(a.scope)] if a.scope else []
+
+d.append_jsonl("delegacoes.jsonl", {
+    "tier": a.tier, "papel": a.papel, "scope": a.scope,
+    "task": a.task[:200], "codigo": res.codigo, "duracao_s": round(res.duracao_s),
+    "conta": conta["nome"] if conta else "free",
+    "exit_confiavel": res.exit_confiavel,
+    "arquivos_mudados": len(mudou), "arquivos_removidos": len(sumiu),
+})
+d.log("agente", f"delegou para {a.tier} ({conta['nome'] if conta else 'free'}): "
+                f"{a.task[:60]} → código {res.codigo}")
+print(f"sub-task terminou. código={res.codigo} log={log}")
+if mudou:
+    print("arquivos alterados:")
+    for f in mudou[:25]:
+        print(f"  {f}")
+    if len(mudou) > 25:
+        print(f"  ... e mais {len(mudou) - 25}")
+if sumiu:
+    print("arquivos REMOVIDOS: " + ", ".join(sumiu[:10]))
+if fora:
+    print(f"AVISO: {len(fora)} arquivo(s) fora do escopo '{a.scope}': "
+          + ", ".join(fora[:5]), file=sys.stderr)
+
+if not res.exit_confiavel:
+    # opencode/agy: o código de saída é ruído (reclamam de crédito e
+    # trabalham). Mudou arquivo = fez alguma coisa. Confira o resultado.
+    if mudou or sumiu:
+        print("[delegate] código de saída deste runtime não é confiável; "
+              "houve mudança no disco. CONFIRA o resultado antes de seguir.")
+        sys.exit(0)
+    print("[delegate] nada mudou no disco. Trate como falha.", file=sys.stderr)
+    sys.exit(1)
+
+sys.exit(0 if res.ok else 1)

@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+"""Registra uma decisão técnica e o porquê."""
+import sys
+sys.path.insert(0, __file__.rsplit("/", 1)[0])
+from _comum import demanda_atual
+
+texto = " ".join(sys.argv[1:]).strip()
+if not texto:
+    print("uso: esteira-decisao \"texto\"", file=sys.stderr); sys.exit(2)
+d = demanda_atual()
+d.append_jsonl("decisoes.jsonl", {"texto": texto})
+d.log("agente", f"decisão: {texto[:80]}")
+print("decisão registrada")

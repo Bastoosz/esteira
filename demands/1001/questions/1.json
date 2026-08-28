@@ -1,0 +1,13 @@
+{
+  "n": 1,
+  "pergunta": "Os 3 filtros client-side devem valer no XLSX?",
+  "opcoes": [
+    "replicar todos",
+    "só colunas visíveis",
+    "dado bruto"
+  ],
+  "default": "só colunas visíveis",
+  "checado": "li FinancialReport.tsx e o endpoint /reports/financial",
+  "bloqueante": true,
+  "rodada": 1
+}

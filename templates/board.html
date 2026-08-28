@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div id="grupos" hx-get="/_live" hx-trigger="every 3s" hx-swap="innerHTML">
+  {% include "_partials/grupos.html" %}
+</div>
+
+<h2>Contas da equipe</h2>
+<table>
+  <tr><th>Pessoa</th><th>Assinatura</th><th>Ativa</th><th>Execuções</th><th>Situação</th></tr>
+  {% for c in contas %}
+  <tr>
+    <td>{{ c.pessoa }}</td>
+    <td class="mono">{{ c.tipo }}</td>
+    <td>{{ 'sim' if c.ativo else '—' }}</td>
+    <td class="mono">{{ c.execucoes }}</td>
+    <td>{% if c.em_cooldown %}<span class="chip alerta">de molho {{ c.cooldown_ate // 60 }}min</span>
+        {% elif c.ativo %}pronta{% else %}não autenticada{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+{% if entregues %}
+<h2>Entregues</h2>
+{% for c in entregues %}
+<div class="card">
+  <div class="linha1">
+    <span class="id">#{{ c.id }}</span>
+    <span class="titulo"><a href="/d/{{ c.id }}">{{ c.titulo }}</a></span>
+    <span class="chip">{{ c.projeto }}</span>
+    <span class="meta">{{ c.rodada }} rodada{{ 's' if c.rodada != 1 }}</span>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

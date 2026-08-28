@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Números{% endblock %}
+{% block conteudo %}
+<h2>Demandas</h2>
+<p style="font-size:13px;color:var(--am-gray-500);margin-top:-4px">
+A coluna que importa é a última: se o primeiro commit humano depois da V1
+foi <strong>aditivo</strong>, a V1 prestou. Se foi <strong>corretivo</strong>, não prestou.</p>
+<table>
+  <tr><th>#</th><th>Título</th><th>Projeto</th><th>Estado</th><th>Rodadas</th>
+      <th>Perguntas</th><th>Sub-tasks</th><th>Contas</th><th>1º commit humano</th></tr>
+  {% for l in linhas %}
+  <tr>
+    <td class="mono"><a href="/d/{{ l.id }}" style="color:var(--am-orange)">{{ l.id }}</a></td>
+    <td>{{ l.titulo|curto(46) }}</td>
+    <td class="mono">{{ l.projeto }}</td>
+    <td class="mono">{{ l.estado|lower|replace('_',' ') }}</td>
+    <td class="mono">{{ l.rodadas }}</td>
+    <td class="mono">{{ l.perguntas }}</td>
+    <td class="mono">{{ l.delegacoes }}</td>
+    <td class="mono">{{ l.contas|join(', ') }}</td>
+    <td class="mono">{{ l.primeiro_commit_humano or '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="9" class="vazio">nada ainda</td></tr>{% endfor %}
+</table>
+{% endblock %}

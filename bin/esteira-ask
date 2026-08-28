@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""
+Pergunta para a EQUIPE. Encerra a execução com código 42.
+O agente não espera — ele para. A retomada é uma execução nova.
+"""
+import argparse, sys
+sys.path.insert(0, __file__.rsplit("/", 1)[0])
+from _comum import demanda_atual, config
+from esteira import comm
+
+p = argparse.ArgumentParser()
+p.add_argument("pergunta")
+p.add_argument("--opcoes", default="", help="separadas por |")
+p.add_argument("--default", required=True,
+               help="OBRIGATÓRIO. Pergunta sem default trava a demanda para sempre.")
+p.add_argument("--checado", default="", help="o que você já verificou antes de perguntar")
+p.add_argument("--bloqueante", action="store_true")
+a = p.parse_args()
+
+d = demanda_atual()
+n = d.proxima_pergunta_id()
+opcoes = [o.strip() for o in a.opcoes.split("|") if o.strip()]
+
+q = {"n": n, "pergunta": a.pergunta, "opcoes": opcoes, "default": a.default,
+     "checado": a.checado, "bloqueante": a.bloqueante, "rodada": d.rodada}
+d.escrever_json(f"questions/{n}.json", q)
+
+corpo = [a.pergunta, ""]
+if a.checado:
+    corpo += [f"_Já verifiquei:_ {a.checado}", ""]
+if opcoes:
+    corpo += ["**Opções:**"] + [f"- {o}" for o in opcoes] + [""]
+corpo += [f"_Se ninguém responder, sigo com:_ **{a.default}**"]
+
+ok, err = comm.enviar(comm.envelope(
+    d, "question", f"❓ #{d.id} — {a.pergunta[:70]}", "\n".join(corpo),
+    opcoes=opcoes, default=a.default, msg_id=f"{d.id}-{n}",
+    urgencia="blocking" if a.bloqueante else "normal"))
+
+d.log("agente", f"perguntou ({n}): {a.pergunta[:80]}" + ("" if ok else f" [envio falhou: {err}]"))
+print(f"pergunta {n} registrada. Encerrando execução — a retomada lê answers/{n}.md")
+sys.exit(config.EXIT_ASK)

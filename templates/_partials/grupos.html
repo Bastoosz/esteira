@@ -1,0 +1,78 @@
+{% if not grupos %}
+  <p class="vazio">Nada na esteira. Mande uma demanda por e-mail.</p>
+{% endif %}
+{% for titulo, itens in grupos %}
+<h2>{{ titulo }} <span style="color:var(--am-orange)">({{ itens|length }})</span></h2>
+{% for c in itens %}
+<div class="card {{ 'vivo' if c.vivo }}{{ 'travado' if c.estado=='TRAVADA' }}{{ 'espera' if c.estado in ['ESPERANDO_HUMANO','EM_REVISAO'] }}">
+  <div class="linha1">
+    {% if c.vivo %}<span class="pulso"></span>{% endif %}
+    <span class="id">#{{ c.id }}</span>
+    <span class="titulo"><a href="/d/{{ c.id }}">{{ c.titulo|curto(64) }}</a></span>
+    <span class="chip">{{ c.projeto }}</span>
+    {% if c.conta %}<span class="chip conta">{{ c.conta_tipo }} de {{ c.conta }}</span>{% endif %}
+    {% for a in c.alertas %}<span class="chip alerta">{{ a }}</span>{% endfor %}
+    <span class="meta">
+      rodada {{ c.rodada }} ·
+      {% if c.estado == 'EXECUTANDO' %}sinal há {{ c.silencio_txt }}
+      {% else %}{{ c.estado|lower|replace('_',' ') }} há {{ c.silencio_txt }}{% endif %}
+    </span>
+  </div>
+
+  {% if c.perguntas %}
+  {% for q in c.perguntas %}
+  <div class="pergunta">
+    <div class="rotulo">Pergunta {{ q.n }}</div>
+    <div>{{ q.pergunta }}</div>
+    {% if q.checado %}<div class="sub">Já verificou: {{ q.checado }}</div>{% endif %}
+    <div class="sub">
+      Sem resposta, segue com: <strong>{{ q.default }}</strong></div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if c.eventos or c.notas %}
+  <div class="duas">
+    <div>
+      <div class="rotulo">Comandos</div>
+      <div class="log">{% for e in c.eventos %}{{ e }}
+{% endfor %}</div>
+    </div>
+    <div>
+      <div class="rotulo">Notas</div>
+      {% for n in c.notas %}
+      <div class="nota"><span>{{ n.texto }}</span>
+        <form class="inline" method="post" action="/fixar/{{ c.id }}/{{ loop.revindex0 }}">
+          <button class="mini" type="submit">fixar</button></form>
+      </div>
+      {% else %}<div class="sub">—</div>{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if c.anexos %}
+  <div class="bloco">
+    <div class="rotulo">Artefatos gerados</div>
+    <div class="log">{{ c.anexos|join(' · ') }}</div>
+  </div>
+  {% endif %}
+
+  <div class="acoes">
+  {% if c.estado == 'TRAVADA' %}
+    <form class="inline" method="post" action="/acao/{{ c.id }}/continuar"><button class="principal">Continuar</button></form>
+    <form class="inline" method="post" action="/acao/{{ c.id }}/recomecar"><button>Recomeçar rodada</button></form>
+    <form class="inline" method="post" action="/acao/{{ c.id }}/assumir"><button>Assumir</button></form>
+    <form class="inline" method="post" action="/acao/{{ c.id }}/cancelar"><button>Cancelar</button></form>
+  {% elif c.estado == 'EM_REVISAO' %}
+    <form class="inline" method="post" action="/acao/{{ c.id }}/aprovar"><button class="principal">Aprovar</button></form>
+    <form class="inline" method="post" action="/acao/{{ c.id }}/mudancas">
+      <input name="texto" placeholder="o que precisa mudar" class="campo">
+      <button>Pedir mudanças</button></form>
+    <form class="inline" method="post" action="/acao/{{ c.id }}/assumir"><button>Assumir</button></form>
+  {% elif c.estado == 'ASSUMIDA' %}
+    <form class="inline" method="post" action="/acao/{{ c.id }}/devolver"><button class="principal">Devolver para a esteira</button></form>
+  {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endfor %}

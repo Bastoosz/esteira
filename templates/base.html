@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titulo %}Esteira{% endblock %} · Andrade Maia</title>
+
+<!-- Design system AM. Quando static/ds/ existir, ele manda. -->
+<link rel="stylesheet" href="{{ url_for('static', filename='ds/styles.css') }}"
+      onerror="this.remove()">
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+<style>
+/* Fallback dos tokens AM — some quando o DS real é copiado para static/ds/ */
+:root{
+  --am-orange:#ff3f06; --am-orange-deep:#cb2d11; --am-black:#000; --am-white:#fff;
+  --am-gray-050:#f4f4f4; --am-gray-100:#e4e4e4; --am-gray-300:#c3c3c3;
+  --am-gray-500:#6e6e6e; --am-graphite:#323232; --am-ink:#1a1a1a;
+  --font-display:"Montserrat",system-ui,sans-serif;
+  --font-body:"Sansation","Montserrat",system-ui,sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --am-orange-tint:#fff0eb; /* ds-ok */
+  --radius:2px;
+  --space-1:4px;  --space-2:7px;  --space-3:10px; --space-4:14px;
+  --space-5:18px; --space-6:22px; --space-7:26px; --largura-max:1180px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--am-gray-050);color:var(--am-black);
+     font-family:var(--font-body);font-size:15px;line-height:1.6}
+i,.foreign{font-style:italic}
+header{background:var(--am-black);color:var(--am-white);
+       padding:var(--space-4) var(--space-6);display:flex;align-items:baseline;gap:var(--space-6);
+       border-bottom:3px solid var(--am-orange)}
+header h1{font-family:var(--font-display);font-weight:800;font-size:17px;
+          letter-spacing:.14em;text-transform:uppercase;margin:0}
+header nav a{color:var(--am-gray-300);text-decoration:none;font-size:12px;
+             text-transform:uppercase;letter-spacing:.1em;margin-right:var(--space-5)}
+header nav a:hover,header nav a.on{color:var(--am-orange)}
+header .rodape{margin-left:auto;font-family:var(--font-mono);font-size:11px;
+               color:var(--am-gray-500)}
+main{max-width:var(--largura-max);margin:0 auto;padding:var(--space-6)}
+h2{font-family:var(--font-display);font-weight:700;font-size:12px;
+   text-transform:uppercase;letter-spacing:.16em;color:var(--am-gray-500);
+   margin:var(--space-7) 0 var(--space-3);border-bottom:1px solid var(--am-gray-100);padding-bottom:var(--space-2)}
+.card{background:var(--am-white);border:1px solid var(--am-gray-100);
+      border-left:3px solid var(--am-gray-300);border-radius:var(--radius);
+      padding:var(--space-4);margin-bottom:var(--space-3)}
+.card.vivo{border-left-color:var(--am-orange)}
+.card.travado{border-left-color:var(--am-orange-deep);background:#fff8f6}
+.card.espera{border-left-color:var(--am-graphite)}
+.linha1{display:flex;align-items:baseline;gap:var(--space-3);flex-wrap:wrap}
+.id{font-family:var(--font-mono);font-weight:700;color:var(--am-orange)}
+.titulo{font-family:var(--font-display);font-weight:600;font-size:15px}
+.titulo a{color:inherit;text-decoration:none}.titulo a:hover{color:var(--am-orange)}
+.chip{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;
+      letter-spacing:.06em;padding:var(--space-1) var(--space-2);border:1px solid var(--am-gray-300);
+      color:var(--am-gray-500);border-radius:var(--radius)}
+.chip.conta{border-color:var(--am-orange);color:var(--am-orange-deep);
+            background:var(--am-orange-tint)}
+.chip.alerta{border-color:var(--am-orange-deep);color:var(--am-white);
+             background:var(--am-orange-deep)}
+.meta{margin-left:auto;font-family:var(--font-mono);font-size:11px;
+      color:var(--am-gray-500)}
+.pulso{display:inline-block;width:var(--space-2);height:var(--space-2);background:var(--am-orange);
+       margin-right:var(--space-1);animation:p 1.6s ease-in-out infinite}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.25}}
+.duas{display:grid;grid-template-columns:1.4fr 1fr;gap:var(--space-5);margin-top:var(--space-4)}
+@media(max-width:820px){.duas{grid-template-columns:1fr}}
+.rotulo{font-family:var(--font-display);font-size:10px;font-weight:700;
+        text-transform:uppercase;letter-spacing:.14em;color:var(--am-gray-500);
+        margin-bottom:var(--space-1)}
+.log{font-family:var(--font-mono);font-size:11.5px;color:var(--am-graphite);
+     line-height:1.75;white-space:pre-wrap;word-break:break-word}
+.nota{font-size:13px;border-left:2px solid var(--am-gray-100);
+      padding:var(--space-1) 0 var(--space-1) var(--space-3);margin-bottom:var(--space-2);display:flex;gap:var(--space-2)}
+.nota span{flex:1}
+button,.btn{font-family:var(--font-display);font-weight:700;font-size:11px;
+  text-transform:uppercase;letter-spacing:.08em;padding:var(--space-2) var(--space-4);
+  border:2px solid var(--am-black);background:var(--am-white);
+  color:var(--am-black);border-radius:var(--radius);cursor:pointer}
+button:hover{background:var(--am-black);color:var(--am-white)}
+button.principal{background:var(--am-orange);border-color:var(--am-orange);
+                 color:var(--am-white)}
+button.principal:hover{background:var(--am-orange-deep);border-color:var(--am-orange-deep)}
+button.mini{font-size:9px;padding:var(--space-1) var(--space-2);border-width:1px}
+.acoes{display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:var(--space-4)}
+form.inline{display:inline}
+table{width:100%;border-collapse:collapse;background:var(--am-white);
+      border:1px solid var(--am-gray-100);font-size:13px}
+th{font-family:var(--font-display);font-size:10px;text-transform:uppercase;
+   letter-spacing:.1em;text-align:left;padding:var(--space-3);
+   border-bottom:2px solid var(--am-black);color:var(--am-graphite)}
+td{padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--am-gray-050)}
+td.mono{font-family:var(--font-mono);font-size:11.5px}
+.pergunta{margin-top:var(--space-3);border-left:3px solid var(--am-orange);
+          padding-left:var(--space-3)}
+.bloco{margin-top:var(--space-3)}
+.sub{font-size:13px;color:var(--am-gray-500)}
+.campo{padding:var(--space-2);border:1px solid var(--am-gray-300);width:16rem}
+.vazio{color:var(--am-gray-500);font-style:normal;padding:var(--space-5) 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Esteira</h1>
+  <nav>
+    <a href="/" class="{{ 'on' if request.path=='/' }}">Ao vivo</a>
+    <a href="/numeros" class="{{ 'on' if request.path=='/numeros' }}">Números</a>
+  </nav>
+  <div class="rodape">{{ agora.strftime('%H:%M:%S') if agora }}</div>
+</header>
+<main>{% block conteudo %}{% endblock %}</main>
+</body>
+</html>

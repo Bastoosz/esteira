@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+"""Registra uma observação. Efêmera — morre com a demanda, salvo se fixada."""
+import sys
+sys.path.insert(0, __file__.rsplit("/", 1)[0])
+from _comum import demanda_atual
+
+texto = " ".join(sys.argv[1:]).strip()
+if not texto:
+    print("uso: esteira-nota \"texto\"", file=sys.stderr); sys.exit(2)
+d = demanda_atual()
+n = d.append_jsonl("notas.jsonl", {"texto": texto, "fixada": False})
+d.log("agente", f"nota: {texto[:80]}")
+print(f"nota registrada ({n['ts']})")

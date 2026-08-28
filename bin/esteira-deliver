@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""Fecha a rodada: check.sh -> check_ds.sh -> commit -> preview para a equipe."""
+import argparse, subprocess, sys
+from pathlib import Path
+sys.path.insert(0, __file__.rsplit("/", 1)[0])
+from _comum import demanda_atual, config
+from esteira import comm, worker
+
+p = argparse.ArgumentParser()
+p.add_argument("--resumo", required=True)
+a = p.parse_args()
+
+d = demanda_atual()
+projeto = d.meta.get("projeto", "_exemplo")
+
+anexos = sorted((d.dir / "outbox").glob("*"))
+if not anexos:
+    print("recusado: nenhum artefato em outbox/. Rode esteira-provar antes.",
+          file=sys.stderr)
+    sys.exit(1)
+
+gates = []
+for nome, cmd in (("check", config.PROJECTS_DIR / projeto / "check.sh"),
+                  ("design system", config.BASE_DIR / "scripts" / "check_ds.sh")):
+    if not Path(cmd).exists():
+        gates.append((nome, None, "não existe")); continue
+    r = subprocess.run(["bash", str(cmd)], capture_output=True, text=True, timeout=900)
+    gates.append((nome, r.returncode == 0, (r.stdout + r.stderr)[-1500:]))
+
+falhou = [g for g in gates if g[1] is False]
+if falhou:
+    print("gates falharam:", file=sys.stderr)
+    for nome, _, saida in falhou:
+        print(f"--- {nome} ---\n{saida}", file=sys.stderr)
+    d.log("agente", f"deliver recusado: {', '.join(g[0] for g in falhou)}")
+    sys.exit(1)
+
+worker.commit(d, f"feat: demanda {d.id} rodada {d.rodada} — {a.resumo[:60]}")
+
+corpo = [a.resumo, "",
+         f"**Rodada:** {d.rodada}",
+         f"**Gates:** {' · '.join(f'{n} {'ok' if s else s}' for n, s, _ in gates)}",
+         f"**Branch:** `{d.meta.get('branch')}`", "",
+         "**Anexos:** " + ", ".join(f.name for f in anexos)]
+comm.enviar(comm.envelope(
+    d, "preview", f"👀 #{d.id} rodada {d.rodada} — {d.meta.get('titulo','')}",
+    "\n".join(corpo), opcoes=["aprovar", "pedir mudanças", "rejeitar"],
+    default=None,
+    anexos=[{"nome": f.name, "caminho": str(f)} for f in anexos]))
+
+d.transicao("EM_REVISAO", f"rodada {d.rodada} entregue")
+print("entregue. preview enviado para a equipe.")

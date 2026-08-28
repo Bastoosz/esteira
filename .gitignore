@@ -1,0 +1,9 @@
+workspace/
+logs/
+data/
+.env
+__pycache__/
+*.pyc
+.venv/
+demands/*/runs/
+static/ds/
