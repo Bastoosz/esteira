@@ -26,10 +26,10 @@ pessoas:
     contas:
       claude:
         config_dir: ~/.esteira-auth/nicolas/claude
-        ativo: false   # autenticar e virar para true (ver README, Dia 1)
+        ativo: true
       codex:
         config_dir: ~/.esteira-auth/nicolas/codex
-        ativo: false   # autenticar e virar para true
+        ativo: true
 
   - id: joao
     nome: João

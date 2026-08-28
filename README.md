@@ -70,7 +70,33 @@ print(runner.smoke_test('lead', contas.disponiveis('claude')[0]))"
 Diretório de autenticação PRÓPRIO da esteira, não o `~/.claude` da pessoa:
 apontar para o do dia a dia faz o agente herdar settings, hooks e plugins
 do humano — comportamento que ninguém declarou e que você vai debugar às
-2h da manhã.
+2h da manhã. Isso foi medido: o mesmo smoke com `CODEX_HOME` do host roda
+12 hooks; com o diretório da esteira, zero.
+
+Efeito colateral do isolamento, para você não estranhar: sem o
+`config.toml` do host, o codex usa o modelo padrão da conta e não o que
+você pinou para si. Se a esteira precisar de um modelo específico, isso
+vai no `CMD_CODEX` (`-m`), não no `config.toml` de ninguém.
+
+### Se a credencial foi COPIADA em vez de logada
+
+Dá para semear o diretório copiando `~/.claude/.credentials.json` e
+`~/.codex/auth.json` (modo 600). Funciona, e foi assim no Dia 1.
+
+**O preço:** a cópia é um retrato. Quando o CLI do dia a dia renova o
+token, a cópia da esteira **não** renova — ela vence sozinha, em silêncio,
+e a demanda quebra no meio em vez de na largada. Não existe aviso.
+
+Duas defesas, nesta ordem:
+
+1. `smoke_todas()` de hora em hora, alertando o dono da conta
+   (`SMOKE_INTERVALO_S` em `config.py`, previsto para o Dia 6). Enquanto
+   isso não sobe, a cópia é dívida.
+2. Quando vencer, não copie de novo: faça o login de verdade dentro do
+   diretório, que é o que renova sozinho.
+
+       CLAUDE_CONFIG_DIR=~/.esteira-auth/nicolas/claude claude
+       CODEX_HOME=~/.esteira-auth/nicolas/codex codex
 
 Só o board sobe por padrão com a demanda de exemplo `1001` para você ver
 o formato. Apague `demands/1001/` quando for valer.
