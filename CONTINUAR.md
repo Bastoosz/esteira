@@ -13,12 +13,13 @@ só quando precisar do detalhe de algum achado.
 | o que | caminho | git |
 |---|---|---|
 | esteira | `~/Área de trabalho/esteira` | `AndradeMaia-Tech/esteira`, privado, `main` empurrado |
+| n8n | `npm -g`, dados em `~/.n8n` | não é repo; roda em `localhost:5678` |
 | template Stack 1 | `~/orca/template-stack1-flask-htmx` | local, **sem remote** |
 | projeto real | `~/orca/AMPLIA.APP_vers-o-2` | `AndradeMaia-Tech/AMPLIA.APP_vers-o-2` (não é nosso; só leitura) |
 | DS de origem | `~/Área de trabalho/Projeto Disney/Jornada-Do-Cliente/o-jeito-am` | não é nosso; fonte dos tokens |
 | auth da esteira | `~/.esteira-auth/nicolas/{claude,codex}` | fora do git, modo 700 |
 
-Portas: board na **5000**, demo do template na **5001**.
+Portas: board na **5000**, demo do template na **5001**, n8n na **5678**.
 
 Últimos commits da esteira:
 
@@ -51,6 +52,12 @@ Template:
     bash check.sh                     # compileall + import + check_ds
     .venv/bin/python app.py           # http://localhost:5001
 
+n8n (2.36.8, instalado por npm; não há Docker nesta máquina):
+
+    export PATH="$HOME/.nvm/versions/node/v24.18.0/bin:$PATH"
+    export N8N_PORT=5678 N8N_SECURE_COOKIE=false N8N_DIAGNOSTICS_ENABLED=false
+    n8n start                         # http://localhost:5678
+
 ---
 
 ## 3. Onde o `BUILD.md` está
@@ -80,18 +87,39 @@ depois, compare com `static/ds/tokens/tokens.css` antes de substituir.
 
 Os quatro itens verdes. Detalhe de cada quebra no `RELATORIO.md`.
 
-### Dia 2 — BLOQUEADO
+### Dia 2 — EM ANDAMENTO
 
 - [ ] F1 `esteira-comms-out` no n8n
 - [ ] Linha `--- responda acima desta linha ---`
 - [ ] F2 `esteira-comms-in`
-- [ ] Testar `POST /answer/1001/1001-1` na mão
+- [x] Testar `POST /answer/1001/1001-1` na mão
 
-**Bloqueio: `n8n` não está instalado.** Sem ele, `esteira-ask` e
-`esteira-deliver` não têm para onde mandar e-mail.
+O endpoint `/answer` (`board.py:126`) foi testado nos quatro caminhos:
 
-O item que **dá para fazer já**, sem n8n, é o último: o endpoint
-`/answer` existe em `board.py:126` e é testável na mão.
+    1001-1 já respondida  → 200 {"ok":true,"nota":"resposta já registrada (idempotente)"}
+    resposta vazia        → 400 {"ok":false,"erro":"resposta vazia"}
+    demanda inexistente   → 404
+    pergunta 2 aberta     → 200, answers/2.md gravado com autor e horário,
+                            estado transitou EM_REVISAO → PRONTA
+
+A demanda 1001 foi restaurada com `git checkout` depois do teste.
+
+Conferido de passagem: o `msg_id` bate. O `board.py` deriva o número da
+pergunta com `msg_id.split("-")[-1]`, e o `esteira-ask` passa
+`msg_id=f"{d.id}-{n}"` explícito — por isso `1001-1` dá `n=1`. O
+`comm.envelope` monta um `msg_id` diferente por padrão
+(`{id}-{tipo}-{timestamp}`), mas só para tipos que não voltam pelo
+`/answer`. Não mexa nisso sem olhar os dois lados.
+
+`n8n` foi instalado por `npm install -g n8n` (não há Docker nesta
+máquina). O `n8n/README.md` já tem a especificação completa de F1 a F4 —
+é o documento a seguir para escrever os fluxos.
+
+**Cuidado ao gerar o JSON dos fluxos:** o `refs/README.md` avisa que
+fluxo n8n gerado do zero "costuma nem abrir". Não aceite JSON que não
+tenha passado por `n8n import:workflow --input=<arquivo>`. E `refs/n8n/`
+está vazia — não há fluxo real de referência, que era justamente o
+material de maior retorno segundo o próprio `refs/README.md`.
 
 ### Dias 3 a 6 — não começados
 
@@ -100,9 +128,9 @@ secção 6 — ela vai morder.
 
 ---
 
-## 4. Duas decisões esperando você
+## 4. Decisões
 
-### 4.1 Montserrat
+### 4.1 Montserrat — RESOLVIDO, auto-hospedada
 
 O `tokens.css` usa `--font-display: var(--font-montserrat), "Montserrat", …`.
 No app de origem, `--font-montserrat` era injetada pelo `next/font`. Fora
@@ -110,17 +138,18 @@ do Next ela não existe, e `var()` sem *fallback* para variável indefinida
 **invalida a declaração inteira** — não cai para o próximo item da lista.
 Todo título perderia a Montserrat em silêncio, com os dois gates verdes.
 
-Já mitigado: `static/ds/tokens/fontes.css` define
-`--font-montserrat: "Montserrat"`. Falta escolher de onde vem a fonte:
+Resolvido em `static/ds/tokens/fontes.css`: define `--font-montserrat` e
+carrega a fonte do disco. Fonte **variável** (pesos 100–900 num arquivo
+só, então não há peso faltando por engano), normal e itálico,
+subconjuntos `latin` e `latin-ext` apenas. Corta de 10 arquivos para 4,
+232 KB. `OFL.txt` junto, que a licença exige ao redistribuir.
 
-| opção | a favor | contra |
-|---|---|---|
-| auto-hospedar | coerente com a Sansation, que já está em `assets/fonts/`; nada de rede ao renderizar | precisa baixar e versionar ~6 arquivos |
-| `<link>` do Google Fonts | uma linha | dependência externa em toda renderização |
+Auto-hospedar e não `<link>` do Google pelo mesmo motivo da Sansation:
+nada de rede de terceiro no momento de renderizar. A esteira roda sozinha
+às 2h da manhã.
 
-Enquanto não decidir, a cadeia cai em Segoe UI / `sans-serif`. A
-Montserrat não existe nesta máquina: `fc-list | grep -i montserrat` volta
-vazio.
+Provado: os 4 `woff2` têm assinatura `wOF2`, servem 200, e o subconjunto
+`latin` cobre todo acento de PT-BR (`ã ç é õ ú à ê ô í â` e maiúsculas).
 
 ### 4.2 Remote do template
 
@@ -135,17 +164,7 @@ manda **clonar** o template — sem remote, ninguém clona. Proposta:
 
 ## 5. Dívidas, em ordem de dor
 
-1. **`agy --dangerously-skip-permissions` não foi provado.** Única linha
-   do Dia 1 sem prova: o sandbox da sessão de construção bloqueou rodar a
-   flag. Sem ela o agy responde, sai 0 e **não escreve nada** — auto-nega
-   a permissão `command` em modo *headless*. Feche assim:
-
-       cd ~/Área\ de\ trabalho/esteira
-       set -a; . ./.env; set +a
-       .venv/bin/python -c "import sys;sys.path.insert(0,'.');\
-       from esteira import runner;print(runner.smoke_test('agy'))"
-
-2. **Credencial copiada, não logada.** `~/.esteira-auth/nicolas/` foi
+1. **Credencial copiada, não logada.** `~/.esteira-auth/nicolas/` foi
    semeado copiando `~/.claude/.credentials.json` e `~/.codex/auth.json`.
    A cópia é um retrato: quando o CLI do dia a dia renova o token, ela
    **não** renova — vence em silêncio e a demanda quebra no meio, não na
@@ -156,22 +175,25 @@ manda **clonar** o template — sem remote, ninguém clona. Proposta:
        CLAUDE_CONFIG_DIR=~/.esteira-auth/nicolas/claude claude
        CODEX_HOME=~/.esteira-auth/nicolas/codex codex
 
-3. **`base.html` do board está fora do DS.** Tema claro, `--radius: 2px`,
+2. **`base.html` do board está fora do DS.** Tema claro, `--radius: 2px`,
    nomes de token inventados (`--am-gray-050`, `--space-*`). O DS real é
    preto, `--radius: 0px` + chanfro 45°, `--ink-1..5`. O template agora é
    a referência correta; o board é que divergiu. Não é urgente — o board
    é ferramenta interna — mas é incoerente pregar aderência ao DS num
    arquivo que não adere.
-4. **`n8n` não instalado.** Bloqueia o Dia 2 inteiro.
-5. **`python-dotenv` no template.** A esteira carrega `.env` por
+3. **Sansation sem licença no repo.** A Montserrat foi
+   redistribuída com o `OFL.txt` junto, como a licença exige. A
+   Sansation está em `assets/fonts/` sem nenhum arquivo de licença.
+   Confirmar os termos dela antes de o template sair do escritório.
+4. **`python-dotenv` no template.** A esteira carrega `.env` por
    `EnvironmentFile=`; o template usa `load_dotenv()`. Divergência
    pequena, mas é uma dependência a mais no molde de todo projeto Stack 1.
-6. **HTMX por CDN** no template e no board (`cdn.jsdelivr.net`,
+5. **HTMX por CDN** no template e no board (`cdn.jsdelivr.net`,
    `unpkg.com`). Dependência externa no momento de renderizar.
-7. **`.am-seal` e `.am-pattern` ficaram fora do `styles.css`.** São
+6. **`.am-seal` e `.am-pattern` ficaram fora do `styles.css`.** São
    elementos de marca; o worker os classificou como auxiliares. Vale
    reavaliar numa segunda passada.
-8. **`template-stack2-fastapi` não existe.** O `STACKS.md` promete.
+7. **`template-stack2-fastapi` não existe.** O `STACKS.md` promete.
 
 ---
 
@@ -197,6 +219,36 @@ Ou o unit define o `PATH`, ou o `.env` usa caminho absoluto:
 
 Cuidado: esse caminho tem a versão do node dentro. Atualizar o node
 quebra. Preferir `PATH` no unit.
+
+### Não faça `append` cego no `~/.codex/config.toml`
+
+O codex **escreve nesse arquivo sozinho**: quando roda numa pasta nova,
+ele acrescenta `[projects."<caminho>"] trust_level = "trusted"`. Se você
+já tiver acrescentado a mesma pasta na mão, vira chave duplicada e o
+codex **para de subir inteiro**:
+
+    Error loading config.toml:
+    /home/nicolas/.codex/config.toml:55:11: duplicate key
+
+Aconteceu aqui: `codex` passou a falhar com `codigo=1` em 0s, e parecia
+problema da esteira. Não era. Antes de editar esse arquivo, confira:
+
+    grep -n '^\[projects\.' ~/.codex/config.toml | sort -k2 | uniq -df1
+
+Detalhe que ajuda: o `CODEX_HOME` isolado da esteira
+(`~/.esteira-auth/nicolas/codex`) tem o **próprio** `config.toml` e se
+auto-registra. Na maioria dos casos não é preciso mexer no do host.
+
+### A flag que recebe o prompt tem que ser a última
+
+Vale para todo runtime com `stdin_prompt: False` — hoje só o `agy`. O
+runner anexa o prompt no **fim** do `argv`. Se houver outra flag depois
+da que recebe o prompt, é essa flag que vira o prompt:
+
+    agy -p --dangerously-skip-permissions      ✗  -p engole a flag
+    agy --dangerously-skip-permissions -p      ✓
+
+O agy avisa. Nem todo CLI avisa.
 
 ### Id de modelo *free* é validade, não configuração
 
