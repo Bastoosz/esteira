@@ -88,6 +88,11 @@ def rodar(tier, prompt, cwd, log_path, timeout_s, extra_env=None, conta=None,
     # prompt como VALOR de -p; com stdin ele sai com 2 e imprime o usage.
     # config.RUNTIMES já declarava stdin_prompt por runtime — aqui ele passa
     # a valer. Prompt em argv aparece no `ps`: só para quem não tem stdin.
+    #
+    # O prompt vai no FIM do argv. Logo, num cmd com stdin_prompt False, a
+    # flag que recebe o prompt tem que ser a ÚLTIMA do comando. Se vier
+    # outra flag depois dela, é essa flag que vira o prompt e o texto real
+    # é ignorado — sem erro visível na maioria dos CLIs.
     via_stdin = rt.get("stdin_prompt", True)
     if not via_stdin:
         argv.append(prompt)

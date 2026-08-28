@@ -94,7 +94,13 @@ RUNTIMES = {
         # (approval: never) e o opencode (--auto) já carregam acima. Ele não
         # tem flag de config-dir, então a alternativa seria mexer no
         # settings.json global do humano — pior, porque vaza entre projetos.
-        "cmd": os.getenv("CMD_AGY", "agy -p --dangerously-skip-permissions"),
+        #
+        # A ORDEM IMPORTA. Com stdin_prompt False o runner anexa o prompt no
+        # FIM do argv, então a flag que recebe o prompt tem que ser a última.
+        # Com "agy -p --dangerously-skip-permissions" o próprio agy avisa:
+        #   Error: -p took "--dangerously-skip-permissions" as its prompt,
+        #   so the intended prompt was left as an argument and ignored.
+        "cmd": os.getenv("CMD_AGY", "agy --dangerously-skip-permissions -p"),
         "stdin_prompt": False,
         "descricao": "Antigravity — sub-tasks pequenas",
         "exit_confiavel": False,

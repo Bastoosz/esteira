@@ -110,7 +110,7 @@ Cada linha foi provada com `runner.smoke_test(tier)`, não lida no `--help`.
 | `lead` | claude 2.1.250 | OK — exige `--verbose` junto com `stream-json` |
 | `codex` | codex-cli 0.150.1 | OK — `-s workspace-write`, modelo gpt-5.4 |
 | `opencode` | opencode 1.18.18 | OK — `--auto` + `-m` obrigatórios |
-| `agy` | Antigravity CLI | responde; escrita em disco a confirmar (ver 1) |
+| `agy` | Antigravity CLI | OK — prompt em **argv**, e a flag do prompt por último |
 | `orca` | orca 1.4.190 | não é runtime; ver "Sobre o Orca" |
 
 Quatro coisas que só aparecem quando você roda:
@@ -126,13 +126,13 @@ Quatro coisas que só aparecem quando você roda:
      `esteira-delegate` foi feito para pegar — e pegaria, dizendo "nada
      mudou no disco", sem nunca explicar por quê.
 
-   A flag está no `.env`. **Ela é a única linha do Dia 1 que não foi
-   provada aqui** — o sandbox da sessão de construção bloqueou rodá-la.
-   Confirme antes de confiar no tier:
+   - e a **ordem das flags importa**. O runner anexa o prompt no fim do
+     `argv`, então a flag que recebe o prompt tem que ser a última. Com
+     `agy -p --dangerously-skip-permissions` o próprio agy avisa que `-p`
+     tomou a flag como prompt e ignorou o texto. O certo é
+     `agy --dangerously-skip-permissions -p`.
 
-       set -a; . ./.env; set +a
-       .venv/bin/python -c "import sys;sys.path.insert(0,'.');\
-    from esteira import runner;print(runner.smoke_test('agy'))"
+   Provado em 2026-08-28: `codigo=0`, arquivo escrito no disco.
 
 2. **Modelo free do OpenCode sai do ar sem aviso.** O default do
    `~/.config/opencode/opencode.jsonc` (`deepseek-v4-flash-free`) já não
