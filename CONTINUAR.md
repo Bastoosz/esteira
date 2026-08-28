@@ -87,12 +87,29 @@ depois, compare com `static/ds/tokens/tokens.css` antes de substituir.
 
 Os quatro itens verdes. Detalhe de cada quebra no `RELATORIO.md`.
 
-### Dia 2 — EM ANDAMENTO
+### Dia 2 — CÓDIGO PRONTO, FALTA CREDENCIAL
 
-- [ ] F1 `esteira-comms-out` no n8n
-- [ ] Linha `--- responda acima desta linha ---`
-- [ ] F2 `esteira-comms-in`
+- [x] F1 `esteira-comms-out` no n8n — 17 nós, importa
+- [x] Linha `--- responda acima desta linha ---` — F1 escreve, F2 corta
+- [x] F2 `esteira-comms-in` — 8 nós, importa
 - [x] Testar `POST /answer/1001/1001-1` na mão
+
+**O que falta para o Dia 2 fechar de verdade:** credencial. Sem Outlook e
+Teams reais não há entrega ponta a ponta. Os dois fluxos entram
+**inativos** e o `n8n/COMO-IMPORTAR.md` lista o que configurar à mão:
+credencial `Outlook — Esteira`, credencial `Teams — Esteira`, endereço da
+equipe (hoje `equipe@CONFIGURAR.invalid`), IDs do Team e do canal, ID da
+pasta `Esteira/nao-identificado`, e a Data Table `esteira_comms`.
+
+Importar:
+
+    export PATH="$HOME/.nvm/versions/node/v24.18.0/bin:$PATH"
+    n8n import:workflow --input=n8n/esteira-comms-out.json
+    n8n import:workflow --input=n8n/esteira-comms-in.json
+
+**Se mexer no `WORKER_BASE` do F2**, ele está fixo no topo do nó
+`Casar mensagem e cortar corpo` e precisa bater com `WORKER_BASE_URL` do
+`.env`.
 
 O endpoint `/answer` (`board.py:126`) foi testado nos quatro caminhos:
 
@@ -249,6 +266,27 @@ da que recebe o prompt, é essa flag que vira o prompt:
     agy --dangerously-skip-permissions -p      ✓
 
 O agy avisa. Nem todo CLI avisa.
+
+### O n8n guarda um pouco de estado — de propósito, e com rede de segurança
+
+O `n8n/README.md` diz que "o n8n não guarda estado". O F1 guarda: uma
+Data Table `esteira_comms` com a correlação entre o `Message-ID` que o
+Outlook gerou e o `reply_to` lógico. Sem isso o casamento por
+`In-Reply-To` é impossível — o próprio README pede esse caminho, e ele
+exige lembrar o que foi enviado.
+
+O que **não** pode acontecer é a tabela virar ponto único de falha. Por
+isso o caminho 3 (regex no assunto) **reconstrói** o `reply_to` quando
+não acha linha na tabela:
+
+    [esteira #1001-2]  →  {WORKER_BASE}/answer/1001/1001-2
+
+Mesmo formato do `comm.envelope`. Perder o banco do n8n degrada o
+casamento, não orfana pergunta.
+
+Se um dia mexer nisso, teste os cinco caminhos, não só o feliz:
+`In-Reply-To`, `conversationId`, assunto **com** tabela, assunto **sem**
+tabela, e nada casando.
 
 ### Id de modelo *free* é validade, não configuração
 
