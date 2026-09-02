@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block titulo %}Orquestração{% endblock %}
+{% block conteudo %}
+
+<h2>Vagas</h2>
+{% for v in estado.vagas %}
+<div class="card {{ 'vivo' if v.task_id else 'espera' }}">
+  <div class="linha1">
+    <span class="id">#{{ v.vaga }}</span>
+    <span class="chip">{{ v.tier }}</span>
+    {% if v.task_id %}
+      <span class="titulo">{{ v.task_id }}</span>
+      <span class="chip conta">{{ v.conta or 'sem conta' }}</span>
+      <span class="meta">{{ v.iniciado_em }}</span>
+    {% else %}
+      <span class="titulo vazio">livre</span>
+    {% endif %}
+  </div>
+  {% if v.escopo %}
+  <div class="sub" style="margin-top:var(--space-2)">
+    <i>escopo</i>: <code>{{ v.escopo }}</code>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+
+<h2>Fila</h2>
+<table>
+  <tr>
+    <th>#</th>
+    <th><i>status</i></th>
+    <th><i>tier</i></th>
+    <th>Título</th>
+    <th>Pré-requisito</th>
+  </tr>
+  {% for item in fila %}
+  <tr class="{{ 'travado' if item.estado == 'escalada' else '' }}">
+    <td class="mono">{{ item.id }}</td>
+    <td class="mono">{{ item.estado }}</td>
+    <td class="mono">{{ item.tier }}</td>
+    <td>{{ item.titulo }}</td>
+    <td class="mono">{{ item.prereq|join(', ') if item.prereq else '—' }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="vazio">fila vazia</td></tr>
+  {% endfor %}
+</table>
+
+{% endblock %}

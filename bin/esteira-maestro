@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""
+esteira-maestro — fila, vagas e o laço `tick`.
+
+Contratos que valem mais que as features:
+
+  Código de saída estável. Quem chama decide por CÓDIGO, nunca por texto.
+    0    ok
+    1    falha
+    2    uso inválido
+    42   perguntou            (mesmo significado do resto da esteira)
+    43   bloqueado
+    124  timeout
+    70   escalada — precisa de humano
+
+  --json em tudo que lista. Se isto virar cron ou webhook, ninguém deve
+  estar parseando tabela.
+
+  NUNCA merge automático. Em versão nenhuma. Regra da casa.
+"""
+import argparse, json, sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import config
+from esteira import maestro
+
+EXIT_OK, EXIT_FALHA, EXIT_USO, EXIT_ESCALADA = 0, 1, 2, 70
+
+
+def _saida(obj, como_json):
+    if como_json:
+        print(json.dumps(obj, ensure_ascii=False, indent=2))
+    return obj
+
+
+def cmd_doctor(a):
+    d = maestro.doctor()
+    if a.json:
+        _saida(d, True)
+    else:
+        for r in d["runtimes"]:
+            marca = "OK " if r["ok"] else "FALHOU"
+            quem = r.get("conta") or "sem conta"
+            extra = "" if r.get("exit_confiavel", True) else "  (exit não confiável: julgue pelo disco)"
+            print(f"  {r['tier']:9} {quem:18} {marca} codigo={r.get('codigo')} "
+                  f"{r.get('duracao_s','?')}s{extra}")
+            if r.get("erro"):
+                print(f"    └─ {r['erro']}")
+        print(f"\n  política de conta: {d['politica']}")
+        for c in d["contas"]:
+            if c["ativo"]:
+                molho = f"  MOLHO {c['cooldown_ate']}s" if c["em_cooldown"] else ""
+                print(f"  {c['pessoa']:10} {c['tipo']:7} {c['execucoes']} execuções{molho}")
+    caidos = [f"{r['tier']}/{r.get('conta') or 'sem conta'}"
+              for r in d["runtimes"] if not r["ok"]]
+    if caidos:
+        print(f"\nCAÍDOS: {', '.join(caidos)}", file=sys.stderr)
+        print("É .env ou config.py — não é o worker. "
+              "Free fora do ar? `opencode models | grep -- -free`", file=sys.stderr)
+        return EXIT_FALHA
+    return EXIT_OK
+
+
+def cmd_fila(a):
+    if a.acao == "list":
+        itens = maestro.ler_fila()
+        if a.json:
+            _saida(itens, True)
+        else:
+            for i in itens:
+                pre = f" prereq={','.join(i['prereq'])}" if i.get("prereq") else ""
+                print(f"  {i['id']}  {i['estado']:10} [{i['tier']:18}] "
+                      f"{i['titulo'][:46]}{pre}")
+        return EXIT_OK
+
+    if a.acao == "next":
+        fila = maestro.ler_fila()
+        estado = maestro.ler_estado()
+        ativos = maestro.escopos_ativos(estado)
+        cand = [i for i in fila if i.get("estado") == "pronta"
+                and maestro.prereq_ok(i, fila)
+                and not maestro.cruza(i["escopo"], ativos)]
+        if a.json:
+            _saida(cand, True)
+        else:
+            for i in cand:
+                print(f"  {i['id']}  [{i['tier']:18}] {i['titulo'][:52]}")
+            if not cand:
+                print("  (nada pronto para despachar)")
+        return EXIT_OK
+
+    if a.acao == "add":
+        if not (a.id and a.titulo and a.tier and a.escopo and a.prova):
+            print("add exige --id --titulo --tier --escopo --prova", file=sys.stderr)
+            return EXIT_USO
+        fila = maestro.ler_fila()
+        if maestro.item(fila, a.id):
+            print(f"{a.id} já está na fila", file=sys.stderr)
+            return EXIT_USO
+        fila.append({"id": a.id, "titulo": a.titulo, "tier": a.tier,
+                     "escopo": a.escopo, "prova": a.prova,
+                     "prereq": [p for p in (a.prereq or "").split(",") if p],
+                     "estado": "pronta", "criado_em": maestro.agora()})
+        maestro.escrever_fila(fila)
+        maestro.journal(f"fila += `{a.id}`", a.titulo)
+        print(f"{a.id} na fila")
+        return EXIT_OK
+    return EXIT_USO
+
+
+def cmd_slots(a):
+    e = maestro.ler_estado()
+    if a.json:
+        _saida(e, True)
+        return EXIT_OK
+    for v in e["vagas"]:
+        if v["task_id"]:
+            viva = "viva" if maestro._vivo(v["pid"]) else "PROCESSO MORTO"
+            print(f"  vaga {v['vaga']} [{v['tier']:9}] {v['task_id']}  "
+                  f"desde {v['iniciado_em']}  {viva}  escopo={v['escopo']}")
+        else:
+            print(f"  vaga {v['vaga']} [{v['tier']:9}] livre")
+    return EXIT_OK
+
+
+def cmd_dispatch(a):
+    try:
+        reg = maestro.dispatch(a.task, vaga=a.vaga, timeout_s=a.timeout)
+    except SystemExit as e:
+        print(str(e), file=sys.stderr)
+        return EXIT_USO
+    except RuntimeError as e:
+        # conta em cooldown ou nenhuma ativa. NÃO é uso inválido e não é
+        # bug: é o `runner` protegendo a assinatura. Escale, não contorne.
+        print(f"[maestro] {e}", file=sys.stderr)
+        print("  Isto é conta, não tarefa. Veja `esteira-maestro doctor` e "
+              "logs/contas.log.", file=sys.stderr)
+        return EXIT_ESCALADA
+    _saida(reg, a.json) if a.json else print(
+        f"  {reg['task_id']} voltou: codigo={reg['codigo']} "
+        f"{reg['duracao_s']}s  disco={'SIM' if reg['tocou_disco'] else 'NAO'}"
+        f"  mudados={reg['arquivos_mudados']}")
+    if reg["fora_do_escopo"]:
+        print(f"  AVISO: fora do escopo: {reg['fora_do_escopo'][:5]}", file=sys.stderr)
+    if not reg["tocou_disco"]:
+        print("  nada mudou no disco. Trate como falha.", file=sys.stderr)
+        return EXIT_FALHA
+    return EXIT_OK
+
+
+def cmd_colher(a):
+    out = maestro.colher(a.task)
+    if a.json:
+        _saida(out, True)
+    else:
+        for o in out:
+            print(f"  {o['task_id']}  {o['veredito']:8} -> {o['estado']:10} {o['nota']}")
+        if not out:
+            print("  (nada a colher)")
+    return EXIT_ESCALADA if any(o["veredito"] == "ESCALAR" for o in out) else EXIT_OK
+
+
+def cmd_tick(a):
+    out = maestro.tick(despachar=not a.sem_despachar)
+    if a.json:
+        _saida(out, True)
+    else:
+        if out.get("erro"):
+            print(f"  {out['erro']}")
+        for o in out["colhido"]:
+            print(f"  colhido {o['task_id']}  {o['veredito']}")
+        for d in out["despachado"]:
+            print(f"  despachado {d['task_id']} vaga {d['vaga']}  codigo={d['codigo']}")
+        if not out["colhido"] and not out["despachado"]:
+            print("  nada mudou. Um tick que não muda nada é um tick que não aconteceu.")
+    return EXIT_ESCALADA if any(o["veredito"] == "ESCALAR"
+                                for o in out.get("colhido", [])) else EXIT_OK
+
+
+def main():
+    p = argparse.ArgumentParser(prog="esteira-maestro")
+    p.add_argument("--json", action="store_true")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("doctor", help="smoke dos 4 runtimes + contas")
+
+    f = sub.add_parser("fila", help="add | list | next")
+    f.add_argument("acao", choices=["add", "list", "next"])
+    f.add_argument("--id"); f.add_argument("--titulo"); f.add_argument("--tier")
+    f.add_argument("--escopo"); f.add_argument("--prova"); f.add_argument("--prereq")
+
+    sub.add_parser("slots", help="o que está em voo, desde quando, em que conta")
+
+    d = sub.add_parser("dispatch", help="despacha um item (bloqueante)")
+    d.add_argument("--task", required=True)
+    d.add_argument("--vaga", type=int)
+    d.add_argument("--timeout", type=int)
+
+    c = sub.add_parser("colher", help="fecha o que voltou, veredito pelo disco")
+    c.add_argument("--task")
+
+    t = sub.add_parser("tick", help="colher + encher (idempotente, cronável)")
+    t.add_argument("--sem-despachar", action="store_true")
+
+    a = p.parse_args()
+    fn = {"doctor": cmd_doctor, "fila": cmd_fila, "slots": cmd_slots,
+          "dispatch": cmd_dispatch, "colher": cmd_colher, "tick": cmd_tick}[a.cmd]
+    sys.exit(fn(a))
+
+
+if __name__ == "__main__":
+    main()

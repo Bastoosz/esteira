@@ -1,0 +1,15 @@
+{
+  "id": "1002",
+  "titulo": "Converter cadastro CSV em XLSX formatado",
+  "projeto": "_exemplo",
+  "origem": "interno",
+  "remetente": "equipe de operações",
+  "estado": "PRONTA",
+  "rodada": 0,
+  "criada_em": "2026-09-02T15:39:19",
+  "atualizada_em": "2026-09-02T15:40:00",
+  "branch": "agent/1002",
+  "pid": null,
+  "run_iniciado_em": null,
+  "dono": "nicolas"
+}

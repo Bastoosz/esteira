@@ -77,7 +77,7 @@ RUNTIMES = {
         # -m é obrigatório: modelo free sai do ar e o default do
         # ~/.config/opencode/opencode.jsonc envelhece. Só id com '-free'.
         "cmd": os.getenv("CMD_OPENCODE",
-                         "opencode run --auto -m opencode/hy3-free"),
+                         "opencode run --auto -m opencode/mimo-v2.5-free"),
         "stdin_prompt": True,
         "descricao": "OpenCode com modelo free — sub-tasks pequenas",
         # Reclama de crédito e mesmo assim trabalha. Código de saída não

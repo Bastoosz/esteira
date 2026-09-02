@@ -40,12 +40,24 @@ Entrega rápida ganha de solução completa. Sempre.
 | Sub-tasks avulsas via API | **OpenRouter — só modelos free** |
 | LLM dentro do código que você **escreve** | OpenRouter, conforme o Guia de Stacks |
 
-Regra de manutenção, aprendida no Dia 1: **id de modelo free não é
-configuração estável, é validade.** Eles saem do ar sem aviso e o CLI
-falha de um jeito que parece bug da esteira. Antes de investigar qualquer
-coisa em `opencode`/`agy`, rode `opencode models | grep -- -free` e
-confirme que o id do `.env` ainda existe. Isso é ajuste de `.env`, nunca
-de código.
+Regra de manutenção: **id de modelo free não é configuração estável, é
+validade.** Eles saem do ar sem aviso e o CLI falha de um jeito que parece
+bug da esteira. Antes de investigar qualquer coisa em `opencode`/`agy`,
+rode `opencode models | grep -- -free` e confirme que o id do `.env` ainda
+existe. Isso é ajuste de `.env`, nunca de código.
+
+Medido, não suposto: **em cinco dias morreram dois ids** —
+`deepseek-v4-flash-free` e depois `hy3-free`, que tinha sido verificado em
+28/08 e já não existia em 02/09. Não é evento raro; é manutenção.
+
+Por isso o `.env` carrega uma **lista de reserva** em comentário, e não só
+o id em uso. Quando o do momento cair, troque pelo próximo — sem
+investigação, sem tocar código.
+
+E a prova de um candidato é **de disco, não de texto**: peça um arquivo e
+confira se ele apareceu. Modelo que responde "ok" e não escreve nada passa
+num teste de texto e falha em produção — é o mesmo modo de falha do `agy`
+sem `--dangerously-skip-permissions`.
 
 **Proibido: modelo pago via API do OpenRouter para rodar o agente.**
 O trabalho grande vai nas assinaturas Claude e Codex da equipe. Elas são

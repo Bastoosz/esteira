@@ -101,19 +101,25 @@ Duas defesas, nesta ordem:
 Só o board sobe por padrão com a demanda de exemplo `1001` para você ver
 o formato. Apague `demands/1001/` quando for valer.
 
-## Estado real desta máquina — conferido no Dia 1 (2026-08-28)
+## Estado real desta máquina — reconferido em 2026-09-02
 
 Cada linha foi provada com `runner.smoke_test(tier)`, não lida no `--help`.
+
+Na reconferência de 02/09, **dois dos quatro estavam caídos** — cinco dias
+depois do Dia 1, sem ninguém ter tocado no repo. Rode o `doctor` antes de
+acreditar nesta tabela:
+
+    .venv/bin/python bin/esteira-maestro doctor
 
 | tier | CLI | veredito |
 |---|---|---|
 | `lead` | claude 2.1.250 | OK — exige `--verbose` junto com `stream-json` |
-| `codex` | codex-cli 0.150.1 | OK — `-s workspace-write`, modelo gpt-5.4 |
-| `opencode` | opencode 1.18.18 | OK — `--auto` + `-m` obrigatórios |
+| `codex` | codex-cli 0.152.1 | OK — `-s workspace-write`; ver 3, se apaga sozinho |
+| `opencode` | opencode 1.18.18 | OK — `--auto` + `-m`; o id do modelo vence, ver 2 |
 | `agy` | Antigravity CLI | OK — prompt em **argv**, e a flag do prompt por último |
 | `orca` | orca 1.4.190 | não é runtime; ver "Sobre o Orca" |
 
-Quatro coisas que só aparecem quando você roda:
+Cinco coisas que só aparecem quando você roda:
 
 1. **`agy` falha de um jeito que parece sucesso.** Duas armadilhas nele:
 
@@ -134,21 +140,55 @@ Quatro coisas que só aparecem quando você roda:
 
    Provado em 2026-08-28: `codigo=0`, arquivo escrito no disco.
 
-2. **Modelo free do OpenCode sai do ar sem aviso.** O default do
-   `~/.config/opencode/opencode.jsonc` (`deepseek-v4-flash-free`) já não
-   existe; `hy3-free` e `mimo-v2.5-free` foram verificados escrevendo em
-   disco. Confira com `opencode models | grep -- -free` antes de culpar
-   a esteira.
-3. **O `codex` estava instalado e ainda assim não existia.** O `npm i -g`
-   tinha morrido no meio: o pacote no lugar, a dependência nativa
-   (`@openai/codex-linux-x64`) faltando, e no lugar do link `codex` um
-   `.codex-KEfGGw34` de instalação interrompida. `command -v codex` não
-   achava nada. `npm install -g @openai/codex@latest` resolveu. Vale a
-   primeira suspeita quando um tier "não está instalado".
+2. **Modelo free do OpenCode sai do ar sem aviso — e é rápido.** Em cinco
+   dias, dois ids morreram: `deepseek-v4-flash-free` (o default do
+   `~/.config/opencode/opencode.jsonc`) e depois `hy3-free`, que estava no
+   `.env` e tinha sido verificado em 28/08.
 
-4. **`n8n` não está instalado nesta máquina.** Dia 2 em diante depende
-   dele. Até subir, `esteira-ask` e `esteira-deliver` não têm para onde
-   mandar o e-mail.
+   Em 2026-09-02 os **cinco** *free* existentes foram testados **com prova
+   de disco**, não de texto — todos os cinco escreveram o arquivo:
+
+       ling-3.0-flash-fin-free · mimo-v2.5-free
+       muse-spark-1.2-contributor-free
+       nemotron-3-ultra-free · nemotron-3.5-lightning-free
+
+   O `.env` usa `mimo-v2.5-free` e carrega os outros quatro como reserva em
+   comentário. Quando cair, troque pelo próximo da lista — é ajuste de
+   `.env`, nunca de código. Confira a lista atual com
+   `opencode models | grep -- -free`.
+
+3. **O `codex` desaparece sozinho. Já aconteceu duas vezes.**
+
+   Em 28/08: o `npm i -g` tinha morrido no meio — pacote no lugar,
+   dependência nativa (`@openai/codex-linux-x64`) faltando, e no lugar do
+   link um `.codex-KEfGGw34` de instalação interrompida.
+
+   Em 02/09: o **link `bin/codex` simplesmente não estava mais lá**, com o
+   pacote *e* a dependência nativa presentes e íntegros. Recriar o link à
+   mão não resolveu, porque o *loader* procura o binário em
+   `@openai/codex/vendor/<triple>/bin/codex` e ele estava em
+   `@openai/codex/node_modules/@openai/codex-linux-x64/vendor/...` — a
+   resolução do pacote de plataforma é que estava quebrada:
+
+       Error: Missing optional dependency @openai/codex-linux-x64.
+
+   Nos dois casos a cura foi a mesma, e é a que o próprio erro manda:
+
+       npm install -g @openai/codex@latest
+
+   **Não perca tempo consertando o link.** Reinstale. E quando um tier
+   "não está instalado", esta é a primeira suspeita — não a terceira.
+
+4. **`n8n` 2.36.8 instalado** (por `npm -g`; não há Docker nesta máquina).
+   Sobe com `n8n start` na porta 5678. Os fluxos F1 e F2 estão em `n8n/` e
+   importam; falta credencial de Outlook e Teams para entrega ponta a ponta.
+
+5. **O worker comita o repo inteiro a cada rodada.** `worker.py::commit()`
+   roda `git add -A` + `commit` + `push` na `BASE_DIR`. É o desenho — "git
+   é a verdade" — mas tem uma consequência que vale saber antes de doer:
+   se alguém (ou algum executor) estiver escrevendo no repo quando o worker
+   fecha uma rodada, **o worker comita o trabalho pela metade**. Rodar o
+   worker de verdade não combina com trabalho paralelo na `BASE_DIR`.
 
 ## Contas — leia antes de ligar rodízio
 

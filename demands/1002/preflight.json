@@ -1,0 +1,37 @@
+{
+  "respostas": {
+    "credencial": {
+      "r": "talvez",
+      "nota": "pre-flight não respondeu"
+    },
+    "certificado": {
+      "r": "talvez",
+      "nota": "pre-flight não respondeu"
+    },
+    "pagamento": {
+      "r": "talvez",
+      "nota": "pre-flight não respondeu"
+    },
+    "externo": {
+      "r": "talvez",
+      "nota": "pre-flight não respondeu"
+    },
+    "juridico": {
+      "r": "talvez",
+      "nota": "pre-flight não respondeu"
+    },
+    "advogado": {
+      "r": "talvez",
+      "nota": "pre-flight não respondeu"
+    }
+  },
+  "alertas": [
+    "credencial",
+    "certificado",
+    "pagamento",
+    "externo",
+    "juridico",
+    "advogado"
+  ],
+  "modelo": "nenhum"
+}

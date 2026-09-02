@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+"""Executa a sentinela de autenticação das contas."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from esteira.sentinela import main
+
+
+raise SystemExit(main())

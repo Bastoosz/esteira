@@ -1,0 +1,15 @@
+[Unit]
+Description=Esteira worker — processa demandas da fila
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/nicolas/Área de trabalho/esteira
+EnvironmentFile=-/home/nicolas/Área de trabalho/esteira/.env
+Environment=PATH="/home/nicolas/.nvm/versions/node/v24.18.0/bin:/home/nicolas/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart="/home/nicolas/Área de trabalho/esteira/.venv/bin/python" -m esteira.worker
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

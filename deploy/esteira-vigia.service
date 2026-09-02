@@ -1,0 +1,15 @@
+[Unit]
+Description=Esteira vigia — monitora workers travados
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/nicolas/Área de trabalho/esteira
+EnvironmentFile=-/home/nicolas/Área de trabalho/esteira/.env
+Environment=PATH="/home/nicolas/.nvm/versions/node/v24.18.0/bin:/home/nicolas/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart="/home/nicolas/Área de trabalho/esteira/.venv/bin/python" -m esteira.vigia
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
