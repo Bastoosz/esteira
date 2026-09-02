@@ -1,5 +1,5 @@
 {
-  "atualizado_em": "2026-09-02T15:53:13",
+  "atualizado_em": "2026-09-02T15:55:18",
   "vagas": [
     {
       "vaga": 1,
@@ -22,10 +22,10 @@
     {
       "vaga": 3,
       "tier": "opencode",
-      "task_id": null,
-      "pid": null,
-      "iniciado_em": null,
-      "escopo": null,
+      "task_id": "T-13",
+      "pid": 53597,
+      "iniciado_em": "2026-09-02T15:55:18",
+      "escopo": "board.py",
       "conta": null
     },
     {

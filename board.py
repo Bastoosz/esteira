@@ -6,7 +6,7 @@ não fica num request HTTP. O worker é processo separado.
 
     python board.py     →  http://localhost:5000
 """
-import subprocess, time, datetime as dt
+import json, subprocess, time, datetime as dt
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, abort
 
@@ -121,6 +121,23 @@ def numeros():
             "primeiro_commit_humano": m.get("commit_humano", ""),
         })
     return render_template("numeros.html", linhas=linhas, contas=contas.resumo())
+
+
+@app.route("/orquestracao")
+def orquestracao():
+    """Mostra as 4 vagas e a fila de tarefas do orquestrador."""
+    estado = {}
+    fila = []
+    estado_file = config.BASE_DIR / "orquestracao" / "estado.json"
+    if estado_file.exists():
+        estado = json.loads(estado_file.read_text(encoding="utf-8"))
+    fila_file = config.BASE_DIR / "orquestracao" / "fila.jsonl"
+    if fila_file.exists():
+        for linha in fila_file.read_text(encoding="utf-8").splitlines():
+            linha = linha.strip()
+            if linha:
+                fila.append(json.loads(linha))
+    return render_template("orquestracao.html", estado=estado, fila=fila)
 
 
 @app.route("/answer/<id_>/<msg_id>", methods=["POST"])

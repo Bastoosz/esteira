@@ -1,7 +1,35 @@
 # Continuar daqui
 
-Estado em **2026-08-28**. Este arquivo é para retomar; o histórico do que
-mudou e por quê está no `RELATORIO.md`.
+Estado em **2026-09-02**. Este arquivo é para retomar; o histórico do que
+mudou e por quê está no `RELATORIO.md`, e o motivo de cada decisão de
+orquestração está em `orquestracao/JOURNAL.md`.
+
+## LEIA PRIMEIRO — duas coisas esperando humano
+
+**1. A credencial de `nicolas:claude` venceu.** A dívida da cópia
+materializou em 02/09: o host renovou o token às 08:45, a cópia da esteira
+é de 28/08 e o *refresh* dela já não vale.
+
+    Failed to authenticate: OAuth session expired and could not be refreshed
+
+Isso **bloqueia rodar o worker** (ele exige conta `claude` ativa). A cura é
+login de verdade, que é interativo:
+
+    CLAUDE_CONFIG_DIR=~/.esteira-auth/nicolas/claude claude
+
+Copiar de novo destrava mais rápido e **recria a mesma dívida**. A
+recomendação é o login.
+
+**2. O `agy` esgotou a cota individual.**
+
+    Individual quota reached. Resets in 137h26m13s.
+
+~5,7 dias, ou seja até ~08/09. **A bancada tem 3 vagas úteis, não 4.** Não
+é a flag nem a tarefa: o T-04 foi o último trabalho dele e consumiu o resto.
+
+Rode isto antes de acreditar em qualquer outra coisa deste arquivo:
+
+    .venv/bin/python bin/esteira-maestro doctor
 
 Ordem de leitura ao voltar: este arquivo → `BUILD.md` → `RELATORIO.md`
 só quando precisar do detalhe de algum achado.
@@ -12,7 +40,7 @@ só quando precisar do detalhe de algum achado.
 
 | o que | caminho | git |
 |---|---|---|
-| esteira | `~/Área de trabalho/esteira` | `AndradeMaia-Tech/esteira`, privado, `main` empurrado |
+| esteira | `~/Área de trabalho/esteira` | `Bastoosz/esteira`, privado, `main` empurrado |
 | n8n | `npm -g`, dados em `~/.n8n` | não é repo; roda em `localhost:5678` |
 | template Stack 1 | `~/orca/template-stack1-flask-htmx` | local, **sem remote** |
 | projeto real | `~/orca/AMPLIA.APP_vers-o-2` | `AndradeMaia-Tech/AMPLIA.APP_vers-o-2` (não é nosso; só leitura) |
@@ -23,12 +51,12 @@ Portas: board na **5000**, demo do template na **5001**, n8n na **5678**.
 
 Últimos commits da esteira:
 
-    77ba968 docs: restaura as secoes do Dia 0 que um sed meu apagou
-    68fe449 docs: fecha o Dia 0 no relatorio
-    f2c1911 Dia 0: projects/amplia real + conserta o gate do design system
-    245c8db Dia 1: agy precisa de skip-permissions ou responde sem tocar o disco
-    107049e Dia 1: conta nicolas ativa, com auth isolada da do host
-    c4df1f6 Dia 1: runtimes conferidos contra os CLIs instalados
+    4db024d orquestracao: bancada de 4 vagas, maestro, e 5 itens fechados com prova
+    23afb97 docs: CONTINUAR.md com o estado do Dia 2 e a nota da Data Table
+    78120ae Dia 2: F1 e F2 do n8n, com o fallback do assunto consertado
+    d0213dd Dia 2: n8n instalado, /answer testado, e a armadilha do config.toml do codex
+    4460807 Dia 1: fecha o agy — a flag do prompt tem que ser a ultima
+    d65b71c docs: CONTINUAR.md — estado, decisoes pendentes e armadilhas
 
 ---
 
@@ -38,11 +66,13 @@ Portas: board na **5000**, demo do template na **5001**, n8n na **5678**.
     set -a; . ./.env; set +a          # NENHUM código lê o .env. Carregue você.
     .venv/bin/python board.py         # http://localhost:5000
 
-Conferir que os quatro runtimes ainda respondem:
+Conferir os runtimes **e as contas**:
 
-    .venv/bin/python -c "import sys;sys.path.insert(0,'.');\
-    from esteira import runner;import config;\
-    [print(t, runner.smoke_test(t)[0]) for t in ('lead','codex','opencode','agy')]"
+    .venv/bin/python bin/esteira-maestro doctor
+
+Use o `doctor`, não o `smoke_test` cru. O smoke sem conta usa o
+`~/.claude` do host e diz OK com a conta da esteira morta — foi medido em
+02/09 e é a razão de o `doctor` testar por conta.
 
 Se algum cair, é `.env` ou `config.py` — **não** é o worker. Ver secção 6.
 
@@ -138,7 +168,39 @@ tenha passado por `n8n import:workflow --input=<arquivo>`. E `refs/n8n/`
 está vazia — não há fluxo real de referência, que era justamente o
 material de maior retorno segundo o próprio `refs/README.md`.
 
-### Dias 3 a 6 — não começados
+### Dia 3 — PEÇAS PRONTAS, BLOQUEADO NA CREDENCIAL
+
+- [x] Demanda `1002` real, em `PRONTA`, que o worker pega
+      (`proxima_da_fila()` devolve `1002`)
+- [x] Roteiro de prova em `orquestracao/roteiros/ciclo-dia3.md`
+- [x] `deploy/` com os 4 units, `PATH` declarado no unit,
+      `Restart=always`, `systemd-analyze verify` sai 0
+- [ ] **Rodar o worker de verdade** — bloqueado: exige conta `claude`
+      ativa, e a de `nicolas` está com OAuth expirado (ver LEIA PRIMEIRO)
+- [ ] Matar o processo do agente à mão e ver o card do vigia — depende do
+      item acima
+
+A 1001 **não serve** para provar o ciclo: é *fixture*, escrita à mão. Os
+dois registros de `execucoes.jsonl` têm o mesmo *timestamp* da criação,
+`runs/` está vazio, e o journal salta `NOVA -> EM_REVISAO`. Por isso a
+1002 existe.
+
+**Antes de rodar o worker, leia:** ele faz `git add -A` + `commit` +
+`push` na `BASE_DIR` a cada rodada. Não rode com trabalho paralelo no
+repo — ele comita o que estiver pela metade.
+
+### Dia 6, adiantado — a sentinela
+
+- [x] `esteira/sentinela.py` + `bin/esteira-smoke`: roda `smoke_todas()`
+      e avisa o dono de cada conta que falhar.
+      `--uma-vez` para cron, `--simular-falha <chave>` para testar.
+      Unit e timer em `deploy/esteira-smoke.{service,timer}`, `OnCalendar=hourly`.
+
+Isto foi adiantado do Dia 6 de propósito: é a defesa que converte a dívida
+da credencial copiada em aviso. **Pegou um problema real na primeira
+execução** — a conta `nicolas:claude` vencida.
+
+### Dias 4 e 5 — não começados
 
 Ler o `BUILD.md`. Antes do Dia 3, ver a armadilha do `systemd` na
 secção 6 — ela vai morder.
@@ -213,6 +275,46 @@ manda **clonar** o template — sem remote, ninguém clona. Proposta:
 7. **`template-stack2-fastapi` não existe.** O `STACKS.md` promete.
 
 ---
+
+## 5.5 A bancada de orquestração
+
+    orquestracao/
+      PLANO.md            o que este bloco se propôs, e o que NÃO ia fazer
+      fila.jsonl          os itens, com escopo e prova
+      estado.json         as 4 vagas
+      despachos.jsonl     um registro por despacho encerrado
+      briefings/T-NN.md   o que foi mandado, exatamente
+      logs/T-NN.log       stdout cru do executor
+      roteiros/           ciclo-dia3.md, o roteiro de prova do Dia 3
+      spikes/             credenciais.md (4 CLIs medidos)
+      JOURNAL.md          o porquê de cada decisão
+
+A CLI:
+
+    .venv/bin/python bin/esteira-maestro doctor    # smoke por runtime E por conta
+    .venv/bin/python bin/esteira-maestro fila list
+    .venv/bin/python bin/esteira-maestro slots
+    .venv/bin/python bin/esteira-maestro dispatch --task T-NN --vaga N
+    .venv/bin/python bin/esteira-maestro colher
+    .venv/bin/python bin/esteira-maestro tick
+
+Códigos de saída: `0` ok · `1` falha · `2` uso inválido · `70` escalada.
+`--json` em tudo que lista.
+
+**Como despachar sem se enganar.** O briefing é arquivo em
+`orquestracao/briefings/T-NN.md`, com sete partes: objetivo em uma frase,
+caminhos absolutos, escopo, o que NÃO tocar, prova exigida, relatório,
+detalhes. Sem "prova exigida" e "relatório" você recebe entrega e não sabe
+o que foi conferido — já aconteceu.
+
+**Dois escopos ativos nunca se cruzam.** O `dispatch` recusa. Não é boa
+prática: é a única coisa que impede dois executores de se sobrescreverem
+sem ninguém notar.
+
+**O veredito é o disco, e depois a prova.** O `colher` classifica
+FEITO/REFAZER/ESCALAR só olhando se o disco mexeu dentro do escopo. Ele
+**não** roda a prova — isso é seu. Item colhido vai para `a_provar`, não
+para `feito`.
 
 ## 6. Armadilhas que vão morder
 
