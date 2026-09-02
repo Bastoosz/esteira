@@ -108,3 +108,12 @@ O que os comandos não registram: o motivo.
 - `2026-09-02T15:54:54` `T-05` **FEITO** — **por quê:** o contrato era meu e nao se delega; as duas pecas difíceis (runner.rodar e a foto do disco) ja existiam e nao foram reescritas
 - `2026-09-02T15:54:54` `T-08` **FEITO**, com o escopo corrigido — **por quê:** eu tinha posto projects/_exemplo/context/armadilhas.md no escopo. Errado: aquele arquivo e o MOLDE que todo projeto copia, e as armadilhas de hoje sao de infraestrutura, nao de projeto. Escrever nele poluiria todo projeto futuro. Foi para README.md e PADROES.md
 - `2026-09-02T15:54:54` fila += `T-13` — **por quê:** template sem rota e meia entrega; o T-11 fica pendurado sem isso
+- `2026-09-02T15:57:42` `T-10` voltou de codex — código 0, 1 arquivo(s) mudado(s), 269s — **por quê:** a prova ainda não rodou; estado a_colher
+- `2026-09-02T15:57:46` `T-09` voltou de codex — código 0, 3 arquivo(s) mudado(s), 276s — **por quê:** a prova ainda não rodou; estado a_colher
+- `2026-09-02T15:57:48` `T-13` voltou de opencode — código 0, 1 arquivo(s) mudado(s), 150s — **por quê:** a prova ainda não rodou; estado a_colher
+- `2026-09-02T15:58:17` `T-09` colhido: **FEITO** — **por quê:** disco mexeu dentro do escopo; rode a prova
+- `2026-09-02T15:58:17` `T-10` colhido: **FEITO** — **por quê:** disco mexeu dentro do escopo; rode a prova
+- `2026-09-02T15:58:17` `T-13` colhido: **FEITO** — **por quê:** disco mexeu dentro do escopo; rode a prova
+- `2026-09-02T16:00:20` `T-09`, `T-10`, `T-13` **FEITOS** — **por quê:** refs/n8n deixa de estar vazia — era o item que o proprio refs/README chamava de maior retorno do repo; o maestro passa a ter teste; e o board mostra a bancada
+- `2026-09-02T16:00:20` ERRO MEU: comitei trabalho em voo num commit de documentação — **por quê:** o commit be85ff9 diz 'docs: CONTINUAR.md' e carregou board.py, refs/n8n/* e tests/test_maestro.py — trabalho de tres executores que ainda estavam escrevendo. Meu 'git add -A' varreu tudo. E a MESMA armadilha do worker.commit() que eu havia documentado 20 minutos antes, e eu cai nela. Regra nova: nao comitar com vaga em voo, ou comitar caminho especifico. Nao reescrevo historico ja empurrado
+- `2026-09-02T16:00:20` briefing meu estava errado: afirmei que pytest estava no venv — **por quê:** nao estava. requirements.txt tinha flask, pyyaml e requests. O projects/_exemplo/check.sh ja chamava pytest, entao a esteira esperava a dependencia sem declarar. Instalei e declarei. Licao: 'a ferramenta X ja esta la' e afirmacao que precisa de prova, igual a qualquer outra

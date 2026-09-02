@@ -1,31 +1,31 @@
 {
-  "atualizado_em": "2026-09-02T15:55:18",
+  "atualizado_em": "2026-09-02T15:57:48",
   "vagas": [
     {
       "vaga": 1,
       "tier": "codex",
-      "task_id": "T-09",
-      "pid": 50797,
-      "iniciado_em": "2026-09-02T15:53:10",
-      "escopo": "refs/n8n/**",
-      "conta": "nicolas:codex"
+      "task_id": null,
+      "pid": null,
+      "iniciado_em": null,
+      "escopo": null,
+      "conta": null
     },
     {
       "vaga": 2,
       "tier": "codex",
-      "task_id": "T-10",
-      "pid": 51206,
-      "iniciado_em": "2026-09-02T15:53:13",
-      "escopo": "tests/test_maestro.py",
-      "conta": "nicolas:codex"
+      "task_id": null,
+      "pid": null,
+      "iniciado_em": null,
+      "escopo": null,
+      "conta": null
     },
     {
       "vaga": 3,
       "tier": "opencode",
-      "task_id": "T-13",
-      "pid": 53597,
-      "iniciado_em": "2026-09-02T15:55:18",
-      "escopo": "board.py",
+      "task_id": null,
+      "pid": null,
+      "iniciado_em": null,
+      "escopo": null,
       "conta": null
     },
     {
