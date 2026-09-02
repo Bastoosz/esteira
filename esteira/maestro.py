@@ -120,19 +120,37 @@ def ler_fila():
     return out
 
 
+def _gravar_atomico(caminho, texto):
+    """
+    tmp + os.replace. `write_text` trunca e SÓ ENTÃO escreve: processo morto
+    no meio (SIGKILL, OOM, reboot, disco cheio) deixa o arquivo pela metade.
+    E `ler_estado` engole JSONDecodeError devolvendo as 4 vagas livres — ou
+    seja, o maestro despacharia por cima de agentes em voo.
+    """
+    caminho = Path(caminho)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    tmp = caminho.with_suffix(caminho.suffix + ".tmp")
+    tmp.write_text(texto, encoding="utf-8")
+    os.replace(tmp, caminho)
+
+
 def escrever_fila(itens):
-    FILA.parent.mkdir(parents=True, exist_ok=True)
-    with FILA.open("w", encoding="utf-8") as f:
-        for i in itens:
-            f.write(json.dumps(i, ensure_ascii=False) + "\n")
+    _gravar_atomico(FILA, "".join(
+        json.dumps(i, ensure_ascii=False) + "\n" for i in itens))
 
 
 def ler_estado():
     if ESTADO.exists():
         try:
             return json.loads(ESTADO.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            # NÃO devolver "4 vagas livres" aqui. Estado corrompido com
+            # agentes em voo faria o maestro despachar por cima deles.
+            raise RuntimeError(
+                f"{ESTADO} está corrompido ({e}). NÃO despache antes de "
+                f"olhar: pode haver executor em voo. Confira com `ps` e "
+                f"conserte o arquivo à mão."
+            ) from e
     return {"atualizado_em": agora(),
             "vagas": [{"vaga": n, "tier": t, "task_id": None, "pid": None,
                        "iniciado_em": None, "escopo": None, "conta": None}
@@ -142,9 +160,7 @@ def ler_estado():
 
 def escrever_estado(e):
     e["atualizado_em"] = agora()
-    ESTADO.parent.mkdir(parents=True, exist_ok=True)
-    ESTADO.write_text(json.dumps(e, ensure_ascii=False, indent=2) + "\n",
-                      encoding="utf-8")
+    _gravar_atomico(ESTADO, json.dumps(e, ensure_ascii=False, indent=2) + "\n")
 
 
 def journal(texto, motivo=""):
@@ -222,6 +238,41 @@ def escopos_ativos(estado):
     return [v["escopo"] for v in estado["vagas"] if v["task_id"] and v["escopo"]]
 
 
+def recolher_vagas_mortas():
+    """
+    Libera vaga cujo processo morreu. Sem isto, um crash entre reservar e
+    liberar (SIGKILL, reboot, exceção no meio do dispatch) deixa a vaga
+    ocupada PARA SEMPRE: `tick` só pulava vaga com `task_id` e nunca
+    consultava `_vivo`.
+
+    O item volta para `pronta`, não para `feito`: não se sabe o que ele
+    chegou a fazer, e o disco é quem dirá na próxima volta.
+    """
+    soltas = []
+    with trava():
+        estado = ler_estado()
+        for v in estado["vagas"]:
+            if not v["task_id"]:
+                continue
+            if v["pid"] and _vivo(v["pid"]):
+                continue
+            soltas.append({"vaga": v["vaga"], "task_id": v["task_id"],
+                           "pid": v["pid"], "iniciado_em": v["iniciado_em"]})
+            v.update(task_id=None, pid=None, iniciado_em=None,
+                     escopo=None, conta=None)
+        if soltas:
+            escrever_estado(estado)
+    for s_ in soltas:
+        it = item(ler_fila(), s_["task_id"]) or {}
+        if it.get("estado") == "em_voo":
+            marcar(s_["task_id"], estado="pronta",
+                   nota_colheita="vaga recolhida: processo morreu sem liberar")
+        journal(f"vaga {s_['vaga']} recolhida — `{s_['task_id']}` tinha "
+                f"pid {s_['pid']} morto",
+                "processo morreu entre reservar e liberar; a vaga ficaria presa para sempre")
+    return soltas
+
+
 def cruza(escopo, ativos):
     """Dois escopos cruzam se compartilham qualquer glob. Conservador."""
     meus = {g.strip() for g in (escopo or "").split(",") if g.strip()}
@@ -237,9 +288,31 @@ def cruza(escopo, ativos):
     return False
 
 
+# Só `feito` libera dependente. `a_provar` NÃO libera: a prova ainda não
+# rodou, e soltar dependente sobre trabalho não provado é como o erro entra
+# na cadeia inteira.
+ESTADOS_FECHADOS = ("feito",)
+
+
 def prereq_ok(it, fila):
-    return all((item(fila, p) or {}).get("estado") == "feito"
-               for p in it.get("prereq", []))
+    """
+    Pré-requisito fechado é `feito`, e quem escreve `feito` é o comando
+    `provar` depois da prova sair 0.
+
+    Isto era um mecanismo morto: `colher()` gravava `a_provar` e nada no
+    repo jamais escrevia `feito`, então toda cadeia de dependência ficava
+    presa para sempre, em silêncio. Item com prereq inexistente também
+    trava — por isso o aviso abaixo.
+    """
+    for pid in it.get("prereq", []):
+        dep = item(fila, pid)
+        if dep is None:
+            raise SystemExit(
+                f"[maestro] {it['id']} depende de '{pid}', que não está na "
+                f"fila. Pré-requisito fantasma trava o item para sempre.")
+        if dep.get("estado") not in ESTADOS_FECHADOS:
+            return False
+    return True
 
 
 # -------------------------------------------------------------- despacho
@@ -260,6 +333,10 @@ def dispatch(task_id, vaga=None, timeout_s=None):
     if not prereq_ok(it, fila):
         raise SystemExit(f"[maestro] {task_id} tem pré-requisito não fechado: "
                          f"{it.get('prereq')}")
+    if it.get("estado") == "em_voo":
+        raise SystemExit(
+            f"[maestro] {task_id} já está em voo (vaga {it.get('vaga')}). "
+            f"Dois executores na mesma tarefa é como se perde trabalho.")
 
     briefing = DIR / "briefings" / f"{task_id}.md"
     if not briefing.exists():
@@ -284,7 +361,9 @@ def dispatch(task_id, vaga=None, timeout_s=None):
         if v["task_id"]:
             raise SystemExit(f"[maestro] vaga {vaga} já tem {v['task_id']} em voo")
 
-        ativos = [e for e in escopos_ativos(estado) if e != it["escopo"]]
+        # NÃO filtrar `e != it["escopo"]`: escopo idêntico é justamente o
+        # caso mais perigoso, e era o único que passava.
+        ativos = escopos_ativos(estado)
         if cruza(it["escopo"], ativos):
             raise SystemExit(f"[maestro] escopo '{it['escopo']}' cruza com vaga ativa. "
                              f"Dois executores no mesmo arquivo é como se perde trabalho "
@@ -295,7 +374,13 @@ def dispatch(task_id, vaga=None, timeout_s=None):
         escrever_estado(estado)
         marcar(task_id, estado="em_voo", vaga=vaga, despachado_em=agora())
 
+    # Duas fotos: a do escopo (para o veredito) e a do repo inteiro (para
+    # flagrar violação). A segunda existe porque `fora_do_escopo(mudou, ...)`
+    # era ESTRUTURALMENTE VAZIO: `mudou` saía de `foto(escopo)`, então todo
+    # caminho nele já casava com o escopo por construção. A proteção de
+    # escopo não existia — foi assim que o resíduo em ~/bin passou em 02/09.
     antes = foto(it["escopo"])
+    antes_repo = foto("**/*")
 
     t0 = time.time()
     res = runner.rodar(it["tier"], briefing.read_text(encoding="utf-8"),
@@ -306,7 +391,9 @@ def dispatch(task_id, vaga=None, timeout_s=None):
 
     depois = foto(it["escopo"])
     mudou, sumiu = diff_foto(antes, depois)
-    fora = fora_do_escopo(mudou, it["escopo"])
+    mudou_repo, sumiu_repo = diff_foto(antes_repo, foto("**/*"))
+    # `sumiu` também conta: apagar tudo dentro do escopo era colhido como FEITO.
+    fora = fora_do_escopo(mudou_repo + sumiu_repo, it["escopo"])
 
     reg = {
         "ts": agora(), "task_id": task_id, "vaga": vaga, "tier": it["tier"],
@@ -348,14 +435,18 @@ def _anotar_pid(vaga, pid):
 # --------------------------------------------------------------- colher
 def colher(task_id=None):
     """
-    Fecha o que voltou. NÃO lê o relatório do executor: roda a prova.
+    Fecha o que voltou, olhando SÓ o disco. Este é um veredito PARCIAL.
+
+    O docstring anterior prometia "roda a prova" e o corpo nunca lia
+    `it["prova"]` — promessa que o código não cumpria é pior que promessa
+    nenhuma, porque quem lê confia. Corrigido: quem roda a prova é o
+    maestro, com `esteira-maestro provar --task T-NN`.
 
     Classifica em FEITO / REFAZER / ESCALAR:
       não tocou o disco            -> REFAZER (suspeite do ambiente)
       tocou fora do escopo         -> ESCALAR (violação; humano olha)
-      tocou e a prova passou       -> FEITO
-      tocou e a prova falhou       -> REFAZER
-      duas voltas erradas          -> ESCALAR (o maestro faz a terceira)
+      tocou dentro do escopo       -> a_provar (NÃO é `feito`)
+      duas voltas sem tocar disco  -> ESCALAR (o maestro faz a terceira)
     """
     fila = ler_fila()
     alvos = [i for i in fila
@@ -371,7 +462,9 @@ def colher(task_id=None):
             veredito, nota = "ESCALAR", (f"tocou fora do escopo: "
                                          f"{it['fora_do_escopo'][:5]}")
         else:
-            veredito, nota = "FEITO", "disco mexeu dentro do escopo; rode a prova"
+            veredito, nota = "FEITO", ("disco mexeu dentro do escopo. Isto NÃO é "
+                                       "aprovação: rode `esteira-maestro provar "
+                                       f"--task {it['id']}`")
         if veredito == "REFAZER" and tentativas >= 2:
             veredito, nota = "ESCALAR", (f"{tentativas} voltas sem fechar — "
                                          f"o maestro faz a terceira, não delega")
@@ -435,6 +528,48 @@ def doctor():
 
 
 # ----------------------------------------------------------------- tick
+def provar(task_id, executar=True):
+    """
+    Roda a prova declarada na fila e é o ÚNICO caminho para `feito`.
+
+    Existe porque `colher()` prometia rodar a prova e não rodava, e porque
+    `prereq_ok` exigia um estado que nada escrevia. Sem este comando a
+    cadeia de dependência ficava presa em silêncio.
+
+    A prova é um comando de shell no campo `prova` do item. Saída 0 fecha.
+    """
+    fila = ler_fila()
+    it = item(fila, task_id)
+    if it is None:
+        raise SystemExit(f"[maestro] task {task_id} não está na fila")
+    if it.get("estado") not in ("a_provar", "escalada"):
+        raise SystemExit(f"[maestro] {task_id} está em '{it.get('estado')}'. "
+                         f"Só se prova o que já foi colhido.")
+    cmd = (it.get("prova") or "").strip()
+    if not cmd:
+        raise SystemExit(f"[maestro] {task_id} não declara prova. Item sem "
+                         f"prova não fecha — é a regra da casa.")
+    if not executar:
+        return {"task_id": task_id, "prova": cmd, "rodou": False}
+
+    log = DIR / "logs" / f"{task_id}.prova.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("w", encoding="utf-8") as f:
+        f.write(f"{agora()} :: prova de {task_id}\n{cmd}\n{'='*60}\n")
+        f.flush()
+        r = subprocess.run(["bash", "-lc", cmd], cwd=str(config.BASE_DIR),
+                           stdout=f, stderr=subprocess.STDOUT, timeout=1800)
+    ok = r.returncode == 0
+    marcar(task_id, estado="feito" if ok else "pronta",
+           prova_codigo=r.returncode, prova_log=str(log),
+           tentativas=int(it.get("tentativas", 0)) + (0 if ok else 1))
+    journal(f"prova de `{task_id}`: **{'passou' if ok else 'FALHOU'}** "
+            f"(código {r.returncode})",
+            "único caminho para `feito`; sem isto a cadeia de prereq não anda")
+    return {"task_id": task_id, "prova": cmd, "rodou": True,
+            "codigo": r.returncode, "ok": ok, "log": str(log)}
+
+
 def tick(despachar=True):
     """
     Idempotente e seguro em cron: lock de arquivo. Rodar duas vezes junto
@@ -449,8 +584,10 @@ def tick(despachar=True):
         try:
             fcntl.flock(trava, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            return {"erro": "outro tick em andamento", "colhido": [], "despachado": []}
+            return {"erro": "outro tick em andamento", "recolhidas": [],
+                    "colhido": [], "despachado": []}
 
+        recolhidas = recolher_vagas_mortas()
         colhido = colher()
         despachado = []
         if despachar:
@@ -472,4 +609,12 @@ def tick(despachar=True):
                     despachado.append(reg)
                 except SystemExit as e:
                     journal(f"não despachou `{cand['id']}`", str(e))
-        return {"colhido": colhido, "despachado": despachado}
+                except Exception as e:
+                    # Antes só SystemExit era capturado. `contas.escolher`
+                    # levanta RuntimeError quando a conta está em cooldown —
+                    # e era o próprio runner que a punha lá. O laço morria e
+                    # a colheita ia junto, sem ser gravada.
+                    journal(f"não despachou `{cand['id']}` — {type(e).__name__}",
+                            f"{e}. O laço segue; isto não derruba o tick.")
+        return {"recolhidas": recolhidas, "colhido": colhido,
+                "despachado": despachado}

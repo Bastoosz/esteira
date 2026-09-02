@@ -220,3 +220,65 @@ def test_cruza_detecta_escopos_que_compartilham_diretorio():
     assert not maestro.cruza("tests/**", ["esteira/**"]), (
         "escopos em diretórios principais diferentes não deveriam cruzar"
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Regressões dos achados da revisão adversarial de 2026-09-02.
+# Cada teste aqui falhava ANTES do conserto. Não apague sem ler o motivo.
+# ─────────────────────────────────────────────────────────────────────────
+
+def test_fora_do_escopo_enxerga_violacao_fora_do_repo(tmp_path, monkeypatch):
+    """
+    O oráculo era ESTRUTURALMENTE VAZIO: `fora_do_escopo(mudou, escopo)`
+    recebia só caminhos vindos de `foto(escopo)`, que por construção já
+    casavam com o escopo. A proteção nunca disparava — foi assim que um
+    executor criou arquivo em ~/bin numa tarefa de escopo `deploy/**`.
+    """
+    from esteira import maestro
+    fora = maestro.fora_do_escopo(
+        ["/home/alguem/bin/coisa", str(maestro.config.BASE_DIR / "config.py")],
+        "deploy/**")
+    assert "/home/alguem/bin/coisa" in fora, "violação fora da raiz tem que ser acusada"
+    assert "config.py" in fora, "arquivo do repo fora do escopo tem que ser acusado"
+    assert maestro.fora_do_escopo(
+        [str(maestro.config.BASE_DIR / "deploy" / "x.service")], "deploy/**") == []
+
+
+def test_prereq_so_fecha_com_feito_e_denuncia_prereq_fantasma():
+    """
+    `prereq_ok` exigia o estado "feito", que NENHUM código escrevia —
+    `colher` gravava `a_provar`. Toda cadeia de dependência morria calada.
+    E prereq inexistente travava o item para sempre, sem mensagem.
+    """
+    import pytest
+    from esteira import maestro
+    fila = [{"id": "A", "estado": "a_provar"}, {"id": "B", "estado": "feito"}]
+    assert maestro.prereq_ok({"id": "X", "prereq": ["A"]}, fila) is False, \
+        "a_provar NÃO libera dependente: a prova ainda não rodou"
+    assert maestro.prereq_ok({"id": "X", "prereq": ["B"]}, fila) is True
+    with pytest.raises(SystemExit):
+        maestro.prereq_ok({"id": "X", "prereq": ["NAO_EXISTE"]}, fila)
+
+
+def test_estado_corrompido_nao_vira_quatro_vagas_livres(tmp_path, monkeypatch):
+    """
+    `ler_estado` engolia JSONDecodeError e devolvia as 4 vagas livres. Com
+    executores em voo, o maestro despacharia por cima deles.
+    """
+    import pytest
+    from esteira import maestro
+    monkeypatch.setattr(maestro, "ESTADO", tmp_path / "estado.json")
+    maestro.ESTADO.write_text('{"vagas": [{"vaga": 1, "task_i', encoding="utf-8")
+    with pytest.raises(RuntimeError, match="corrompido"):
+        maestro.ler_estado()
+
+
+def test_escrita_de_estado_e_atomica(tmp_path, monkeypatch):
+    """`write_text` trunca e só então escreve. tmp + os.replace não deixa
+    o arquivo pela metade se o processo morrer no meio."""
+    from esteira import maestro
+    monkeypatch.setattr(maestro, "ESTADO", tmp_path / "estado.json")
+    maestro.escrever_estado({"vagas": [{"vaga": 1, "task_id": None}]})
+    assert not list(tmp_path.glob("*.tmp")), "o temporário tem que sumir"
+    import json
+    assert json.loads(maestro.ESTADO.read_text())["vagas"][0]["vaga"] == 1
