@@ -1,8 +1,13 @@
 # Continuar daqui
 
-Estado em **2026-09-02**. Este arquivo é para retomar; o histórico do que
+Estado em **2026-09-03**. Este arquivo é para retomar; o histórico do que
 mudou e por quê está no `RELATORIO.md`, e o motivo de cada decisão de
 orquestração está em `orquestracao/JOURNAL.md`.
+
+**O escopo mudou:** a esteira vai virar um **executável Windows** que cada
+dev instala. O plano está em `orquestracao/PLANO-DESKTOP.md`. O miolo não
+muda — `runner.rodar` continua sendo o runtime, git continua sendo a verdade
+da demanda, e o app é **rosto, não cérebro**.
 
 ## LEIA PRIMEIRO — duas coisas esperando humano
 
@@ -51,12 +56,12 @@ Portas: board na **5000**, demo do template na **5001**, n8n na **5678**.
 
 Últimos commits da esteira:
 
-    4db024d orquestracao: bancada de 4 vagas, maestro, e 5 itens fechados com prova
-    23afb97 docs: CONTINUAR.md com o estado do Dia 2 e a nota da Data Table
-    78120ae Dia 2: F1 e F2 do n8n, com o fallback do assunto consertado
-    d0213dd Dia 2: n8n instalado, /answer testado, e a armadilha do config.toml do codex
-    4460807 Dia 1: fecha o agy — a flag do prompt tem que ser a ultima
-    d65b71c docs: CONTINUAR.md — estado, decisoes pendentes e armadilhas
+    be6b00a Esteira Desktop: hub, tres telas, login guiado e telemetria no runner
+    f9a2cf9 orquestracao: plano do Esteira Desktop, fila e as sete provas
+    982e766 docs: registra o escaping que comeu 4 trechos da mensagem anterior
+    290194d maestro: conserta 10 defeitos que a revisao adversarial achou
+    b9f171f orquestracao: fecha T-09, T-10, T-13 e declara pytest
+    be85ff9 docs: CONTINUAR.md com o estado de 02/09 e a bancada de orquestracao
 
 ---
 
@@ -275,6 +280,44 @@ manda **clonar** o template — sem remote, ninguém clona. Proposta:
 7. **`template-stack2-fastapi` não existe.** O `STACKS.md` promete.
 
 ---
+
+## 5.4 Esteira Desktop — onde está
+
+Fechado, com prova rodada pelo `esteira-maestro provar`:
+
+| item | o que é | onde |
+|---|---|---|
+| D1 | hub SQLite + 3 endpoints no board | `esteira/hub/{db,api}.py` |
+| D3 | telemetria no `runner`, best-effort | `esteira/hub/reporte.py` |
+| E1 | as três telas contra o hub | `app/` |
+| F1 | login guiado por pessoa e runtime | `esteira/login.py`, `bin/esteira-login` |
+| G1 | F1 do n8n por `amknowledge@andrademaia.com` | `n8n/esteira-comms-out.json` |
+| I1 | as APIs pagas, com dono e o que cai | `refs/ferramentas.md` |
+
+Em voo: **D4** (semear o hub com o histórico) e **E5** (guard de WebView2).
+
+### O achado de Windows que muda o app
+
+`orquestracao/spikes/windows.md`. Resumo: **sem o WebView2 Runtime, o
+`pywebview` não dá erro — cai para o motor do IE11 em silêncio**, com um
+`logger.warning` que ninguém vê. HTMX e `fetch` quebram e o app "fica
+esquisito" na máquina de uma pessoa. E `gui='edgechromium'` **não força**.
+Por isso o E5 existe: o app checa antes de abrir a janela e **recusa**.
+
+O spike cobriu **1 de 4 perguntas**. PyInstaller, SmartScreen e credencial
+por CLI no Windows estão marcados como **não perguntados**, não como "sem
+achados" — a diferença importa.
+
+### As provas são do maestro, não dos executores
+
+`orquestracao/provas/` — sete scripts, escritos **antes** do despacho. Todo
+briefing diz: não edite a prova para fazê-la passar; se ela parecer errada,
+escreva no relatório.
+
+Isso pegou coisa duas vezes. A melhor: a primeira versão da prova do D3
+passava **de graça** — verificava que o `runner` não quebrava com o hub
+morto, e um runner que não reporta também não quebra. Endurecida para exigir
+que o hub **receba** a execução.
 
 ## 5.5 A bancada de orquestração
 
