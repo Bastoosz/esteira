@@ -27,10 +27,11 @@ recomendação é o login.
 
 **2. O `agy` esgotou a cota individual.**
 
-    Individual quota reached. Resets in 137h26m13s.
+    Individual quota reached. Resets in 132h37m45s.   (medido em 03/09)
 
-~5,7 dias, ou seja até ~08/09. **A bancada tem 3 vagas úteis, não 4.** Não
-é a flag nem a tarefa: o T-04 foi o último trabalho dele e consumiu o resto.
+Ou seja até ~08/09. **A bancada tem 3 vagas úteis, não 4.** Não é a flag nem
+a tarefa: o T-04 foi o último trabalho dele e consumiu o resto. Confirme com
+`agy --dangerously-skip-permissions -p "OK"` antes de contar com a vaga 4.
 
 Rode isto antes de acreditar em qualquer outra coisa deste arquivo:
 
@@ -169,9 +170,9 @@ máquina). O `n8n/README.md` já tem a especificação completa de F1 a F4 —
 
 **Cuidado ao gerar o JSON dos fluxos:** o `refs/README.md` avisa que
 fluxo n8n gerado do zero "costuma nem abrir". Não aceite JSON que não
-tenha passado por `n8n import:workflow --input=<arquivo>`. E `refs/n8n/`
-está vazia — não há fluxo real de referência, que era justamente o
-material de maior retorno segundo o próprio `refs/README.md`.
+tenha passado por `n8n import:workflow --input=<arquivo>`. `refs/n8n/`
+**deixou de estar vazia** no T-09: tem os dois fluxos exportados e
+sanitizados, mais um README dizendo o que cada nó ensina.
 
 ### Dia 3 — PEÇAS PRONTAS, BLOQUEADO NA CREDENCIAL
 
