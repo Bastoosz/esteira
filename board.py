@@ -13,6 +13,7 @@ from flask import Flask, render_template, request, redirect, url_for, abort
 import config
 from esteira.demanda import Demanda
 from esteira import contas
+from esteira.hub import api as hub_api
 
 app = Flask(__name__)
 
@@ -218,6 +219,21 @@ def fixar(id_, idx):
 def curto(s, n=90):
     s = str(s)
     return s if len(s) <= n else s[:n - 1] + "…"
+
+
+@app.route("/telemetria", methods=["POST"])
+def telemetria():
+    return hub_api.postar_telemetria()
+
+
+@app.route("/contas/estado", methods=["POST"])
+def estado_conta():
+    return hub_api.postar_estado_conta()
+
+
+@app.route("/api/consumo")
+def consumo():
+    return hub_api.obter_consumo()
 
 
 if __name__ == "__main__":

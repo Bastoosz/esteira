@@ -13,7 +13,7 @@ Os workflows chegam inativos. Configure os itens abaixo, salve e só então ativ
 
 1. Crie uma credencial OAuth2 do Outlook chamada `Outlook — Esteira` e selecione-a em todos os nós Outlook e no HTTP Request `Buscar cabeçalhos completos no Graph`. Ela precisa ler, criar/enviar e mover mensagens.
 2. Crie uma credencial OAuth2 do Teams chamada `Teams — Esteira` e selecione-a nos dois nós Teams. Use OAuth delegado: postagem em canal não funciona com Service Principal no nó desta versão.
-3. Em F1, substitua `equipe@CONFIGURAR.invalid` nos dois nós de envio e em `Criar rascunho no Outlook` pelo e-mail interno da equipe.
+3. A credencial OAuth2 do Outlook `Outlook — Esteira` deve apontar para a caixa `amknowledge@andrademaia.com`. Os três nós Outlook do F1 (rascunho, envio com anexo, envio sem anexo) já estão configurados com esse endereço.
 4. Nos dois fluxos, selecione o Team e o canal nos nós Teams, substituindo `CONFIGURAR_TEAM_ID` e `CONFIGURAR_CHANNEL_ID`.
 5. No Outlook, crie a pasta `Esteira/nao-identificado`. Em F2, selecione essa pasta em `Mover para Esteira nao-identificado`, substituindo `CONFIGURAR_ID_PASTA_NAO_IDENTIFICADO`.
 6. Crie uma Data Table chamada `esteira_comms` com estas colunas:

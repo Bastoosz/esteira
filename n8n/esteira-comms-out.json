@@ -64,7 +64,7 @@
               { "name": "X-Esteira-Reply-To", "value": "={{ $json.reply_to }}" }
             ]
           },
-          "toRecipients": "equipe@CONFIGURAR.invalid"
+          "toRecipients": "amknowledge@andrademaia.com"
         }
       },
       "id": "f1-draft",
@@ -80,7 +80,7 @@
       "parameters": {
         "resource": "row",
         "operation": "insert",
-        "dataTableId": { "__rl": true, "value": "esteira_comms", "mode": "name" },
+        "dataTableId": { "__rl": true, "id": "esteira_comms", "mode": "name" },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -188,7 +188,7 @@
         "resource": "draft",
         "operation": "send",
         "draftId": { "__rl": true, "value": "={{ $('Criar rascunho no Outlook').first().json.id }}", "mode": "id" },
-        "to": "equipe@CONFIGURAR.invalid"
+        "to": "amknowledge@andrademaia.com"
       },
       "id": "f1-enviar-com-anexo",
       "name": "Enviar e-mail com anexos",
@@ -205,7 +205,7 @@
         "resource": "draft",
         "operation": "send",
         "draftId": { "__rl": true, "value": "={{ $('Criar rascunho no Outlook').first().json.id }}", "mode": "id" },
-        "to": "equipe@CONFIGURAR.invalid"
+        "to": "amknowledge@andrademaia.com"
       },
       "id": "f1-enviar-sem-anexo",
       "name": "Enviar e-mail sem anexos",
@@ -238,8 +238,8 @@
         "authentication": "microsoftTeamsOAuth2Api",
         "resource": "channelMessage",
         "operation": "create",
-        "teamId": { "__rl": true, "value": "CONFIGURAR_TEAM_ID", "mode": "id" },
-        "channelId": { "__rl": true, "value": "CONFIGURAR_CHANNEL_ID", "mode": "id" },
+        "teamId": { "__rl": true, "id": "CONFIGURAR_TEAM_ID", "mode": "id" },
+        "channelId": { "__rl": true, "id": "CONFIGURAR_CHANNEL_ID", "mode": "id" },
         "contentType": "html",
         "message": "={{ `<strong>${$('Montar e-mail em HTML').first().json.type === 'blocked' ? '🛑 BLOQUEADA' : '📨 Esteira'}</strong><br>${$('Montar e-mail em HTML').first().json.assunto}<br>${$('Montar e-mail em HTML').first().json.body_md}` }}",
         "options": { "includeLinkToWorkflow": false }

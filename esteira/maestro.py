@@ -83,18 +83,84 @@ def foto(padrao, raiz=None):
     return itens
 
 
+# O que o PRÓPRIO maestro escreve enquanto um despacho roda. Sem isto, a
+# foto do repo inteiro acusa o executor da escrita do orquestrador: em 02/09
+# o I1 foi para ESCALAR por "tocar" orquestracao/estado.json e os logs das
+# outras vagas — arquivos que o executor nunca viu.
+#
+# `logs/` fica de fora porque é lá que o runner grava o transcript de todo
+# mundo, e é gitignored. Consequência aceita: escrita de executor em `logs/`
+# não é vista. Se algum dia isso importar, a saída é comparar por dono do
+# arquivo, não por caminho.
+ESCRITA_DO_MAESTRO = (
+    "orquestracao/estado.json",
+    "orquestracao/fila.jsonl",
+    "orquestracao/despachos.jsonl",
+    "orquestracao/JOURNAL.md",
+    "orquestracao/logs/",
+    "logs/",
+)
+
+
+def _ignorado_pelo_git(rels, raiz=None):
+    """
+    O que o .gitignore ignora não é entrega — é resíduo de execução.
+
+    Medido em 02/09: o D1 foi para ESCALAR por "tocar" `__pycache__/*.pyc` e
+    `data/hub.db`. O primeiro é bytecode que aparece só de rodar Python; o
+    segundo é o banco que o próprio item existe para criar. Nenhum dos dois é
+    violação de escopo, e o git já sabe disso — então quem responde é o git,
+    não uma lista minha que envelhece.
+    """
+    if not rels:
+        return set()
+    try:
+        r = subprocess.run(["git", "check-ignore", "--stdin"],
+                           cwd=str(raiz or config.BASE_DIR), input="\n".join(rels),
+                           capture_output=True, text=True, timeout=10)
+    except Exception:
+        # Não é repo git, cwd sumiu, git ausente. A consulta é auxílio, não
+        # requisito: sem ela o oráculo fica mais rígido (acusa resíduo), o
+        # que é o lado seguro de errar. Derrubar quem chama nunca é.
+        return set()
+    return {l.strip() for l in r.stdout.splitlines() if l.strip()}
+
+
+def _do_maestro(rel):
+    # O relatório é pedido POR TODO briefing e mora em orquestracao/. Cobrar
+    # o executor por escrever onde eu mandei é defeito do briefing, não dele.
+    if rel.startswith("orquestracao/RELATORIO-"):
+        return True
+    return any(rel == p or rel.startswith(p) for p in ESCRITA_DO_MAESTRO)
+
+
 def diff_foto(antes, depois):
     mudou = sorted(k for k in depois if antes.get(k) != depois[k])
     sumiu = sorted(set(antes) - set(depois))
     return mudou, sumiu
 
 
-def fora_do_escopo(caminhos, padrao, raiz=None):
+def fora_do_escopo(caminhos, padrao, raiz=None, escopos_vizinhos=()):
     """Arquivo que mudou e não casa com nenhum glob do escopo."""
     if not padrao:
         return []
     raiz = Path(raiz or config.BASE_DIR)
     globs = [g.strip() for g in padrao.split(",") if g.strip()]
+    # Escopo das OUTRAS vagas em voo. A foto do repo inteiro não sabe QUEM
+    # escreveu: ela só vê o antes e o depois. Com vagas em paralelo, o que a
+    # vizinha criou aparece na minha foto e eu acusaria o executor errado —
+    # medido em 03/09, quando F1 e G1 foram os dois acusados de criar `app/`,
+    # que era trabalho do E1 rodando ao lado.
+    vizinhos = [g.strip() for e in (escopos_vizinhos or ())
+                for g in (e or "").split(",") if g.strip()]
+    rels = []
+    for c in caminhos:
+        try:
+            rels.append(str(Path(c).relative_to(raiz)))
+        except ValueError:
+            rels.append(None)
+    ignorados = _ignorado_pelo_git([r for r in rels if r], raiz)
+
     fora = []
     for c in caminhos:
         try:
@@ -103,9 +169,15 @@ def fora_do_escopo(caminhos, padrao, raiz=None):
             # fora da raiz do repo: sempre violação, e sempre reportado
             fora.append(str(c))
             continue
-        if not any(Path(rel).match(g) or rel.startswith(g.split("*")[0])
-                   for g in globs):
-            fora.append(rel)
+        if _do_maestro(rel) or rel in ignorados:
+            continue        # escrita do orquestrador, ou resíduo que o git ignora
+        if any(Path(rel).match(g) or rel.startswith(g.split("*")[0])
+               for g in globs):
+            continue        # dentro do meu escopo
+        if any(Path(rel).match(g) or rel.startswith(g.split("*")[0])
+               for g in vizinhos):
+            continue        # é da vaga do lado, não deste executor
+        fora.append(rel)
     return fora
 
 
@@ -369,6 +441,8 @@ def dispatch(task_id, vaga=None, timeout_s=None):
                              f"Dois executores no mesmo arquivo é como se perde trabalho "
                              f"sem ninguém notar.")
 
+        vizinhos = [x["escopo"] for x in estado["vagas"]
+                    if x["task_id"] and x["vaga"] != vaga and x["escopo"]]
         v.update(task_id=task_id, escopo=it["escopo"], iniciado_em=agora(),
                  conta=(conta or {}).get("chave"))
         escrever_estado(estado)
@@ -393,7 +467,11 @@ def dispatch(task_id, vaga=None, timeout_s=None):
     mudou, sumiu = diff_foto(antes, depois)
     mudou_repo, sumiu_repo = diff_foto(antes_repo, foto("**/*"))
     # `sumiu` também conta: apagar tudo dentro do escopo era colhido como FEITO.
-    fora = fora_do_escopo(mudou_repo + sumiu_repo, it["escopo"])
+    # Quem entrou em voo DEPOIS de mim também escreve na minha janela.
+    vizinhos_agora = [x["escopo"] for x in ler_estado()["vagas"]
+                      if x["task_id"] and x["vaga"] != vaga and x["escopo"]]
+    fora = fora_do_escopo(mudou_repo + sumiu_repo, it["escopo"],
+                          escopos_vizinhos=set(vizinhos) | set(vizinhos_agora))
 
     reg = {
         "ts": agora(), "task_id": task_id, "vaga": vaga, "tier": it["tier"],
@@ -542,7 +620,13 @@ def provar(task_id, executar=True):
     it = item(fila, task_id)
     if it is None:
         raise SystemExit(f"[maestro] task {task_id} não está na fila")
-    if it.get("estado") not in ("a_provar", "escalada"):
+    # `a_provar` e `escalada` vêm da colheita. `pronta` com tier de maestro
+    # é o trabalho que EU faço: ele não passa por dispatch, logo nunca é
+    # colhido — e sem esta linha o contrato "prova é o único caminho para
+    # feito" não valeria justamente para quem escreve o contrato.
+    do_maestro = str(it.get("tier", "")).startswith("claude")
+    if it.get("estado") not in ("a_provar", "escalada") and not (
+            do_maestro and it.get("estado") == "pronta"):
         raise SystemExit(f"[maestro] {task_id} está em '{it.get('estado')}'. "
                          f"Só se prova o que já foi colhido.")
     cmd = (it.get("prova") or "").strip()

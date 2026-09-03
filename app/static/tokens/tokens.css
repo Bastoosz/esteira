@@ -1,0 +1,30 @@
+:root {
+  --bg-base: #000000;
+  --bg-elev-1: #0a0a0a;
+  --bg-elev-2: #141414;
+  --bg-elev-3: #1c1c1c;
+  --paper: #141414;
+  --ink-1: #ffffff;
+  --ink-2: #e4e4e4;
+  --ink-3: #c3c3c3;
+  --ink-4: #8a8a8a;
+  --ink-5: #4a4a4a;
+  --am-orange: #ff3f06;
+  --am-orange-soft: rgba(255, 63, 6, 0.12);
+  --hair: rgba(255, 255, 255, 0.08);
+  --hair-strong: rgba(255, 255, 255, 0.18);
+  --radius: 0px;
+  --chamfer: 18px;
+  --chamfer-sm: 10px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --largura-max: 1180px;
+  --font-body: "Sansation", "Montserrat", sans-serif;
+  --font-display: "Montserrat", "Sansation", sans-serif;
+}
+

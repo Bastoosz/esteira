@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Esteira{% endblock %} · Andrade Maia</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tokens/tokens.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+  <header class="topo">
+    <a class="marca" href="/" aria-label="Esteira, página inicial">AM <span>Esteira</span></a>
+    <nav aria-label="Navegação principal">
+      <a href="/" class="{{ 'atual' if request.path == '/' else '' }}">Esteira</a>
+      <a href="/consumo" class="{{ 'atual' if request.path == '/consumo' else '' }}">Consumo</a>
+      <a href="/contas" class="{{ 'atual' if request.path == '/contas' else '' }}">Contas</a>
+    </nav>
+    <span class="somente-leitura">Somente leitura</span>
+  </header>
+  <main>
+    {% block conteudo %}{% endblock %}
+  </main>
+</body>
+</html>
+

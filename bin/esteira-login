@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""Conduz o login interativo e valida a autenticação com um smoke test."""
+import argparse
+import json
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from esteira import login, runner
+
+
+EXIT_OK, EXIT_FALHA, EXIT_USO = 0, 1, 2
+
+
+def _imprimir(valor, como_json=False):
+    if como_json:
+        print(json.dumps(valor, ensure_ascii=False, indent=2))
+    return valor
+
+
+def cmd_pessoas(args):
+    itens = login.pessoas()
+    if args.json:
+        _imprimir(itens, True)
+    else:
+        for pessoa in itens:
+            print(f"{pessoa['id']}: {pessoa.get('nome', pessoa['id'])}")
+    return EXIT_OK
+
+
+def cmd_comando(args):
+    try:
+        argv = login.comando(args.pessoa, args.runtime)
+    except ValueError as erro:
+        print(str(erro), file=sys.stderr)
+        return EXIT_USO
+    saida = {"pessoa": args.pessoa, "runtime": args.runtime, "comando": argv}
+    _imprimir(saida, True) if args.json else print(shlex.join(argv))
+    return EXIT_OK
+
+
+def cmd_login(args):
+    try:
+        argv = login.comando(args.pessoa, args.runtime)
+        conta = login.conta_para_smoke(args.pessoa, args.runtime)
+        tier = login.tier_para(args.runtime)
+    except ValueError as erro:
+        print(str(erro), file=sys.stderr)
+        return EXIT_USO
+
+    print(f"Comando interativo: {shlex.join(argv)}")
+    if args.somente_mostrar:
+        return EXIT_OK
+
+    print("Iniciando autenticação no terminal atual...")
+    try:
+        resultado = subprocess.run(argv, check=False)
+    except FileNotFoundError:
+        print(f"runtime não encontrado: {args.runtime}", file=sys.stderr)
+        return EXIT_FALHA
+    if resultado.returncode != 0:
+        print(
+            f"O login terminou com código {resultado.returncode}; conta não ativada.",
+            file=sys.stderr,
+        )
+        return EXIT_FALHA
+
+    print("Login encerrado; executando smoke test...")
+    smoke_passou, _ = runner.smoke_test(tier, conta)
+    try:
+        registro = login.ativar(args.pessoa, args.runtime, smoke_passou=smoke_passou)
+    except RuntimeError as erro:
+        print(f"{erro}; contas.yaml não foi alterado.", file=sys.stderr)
+        return EXIT_FALHA
+
+    if args.json:
+        _imprimir(registro, True)
+    else:
+        print(
+            "Smoke test passou. A conta pode ser marcada como ativo: true "
+            "por um humano em contas.yaml."
+        )
+    return EXIT_OK
+
+
+def parser():
+    principal = argparse.ArgumentParser(prog="esteira-login")
+    sub = principal.add_subparsers(dest="acao", required=True)
+
+    pessoas = sub.add_parser("pessoas", help="lista as pessoas cadastradas")
+    pessoas.add_argument("--json", action="store_true")
+    pessoas.set_defaults(func=cmd_pessoas)
+
+    comando = sub.add_parser("comando", help="mostra o comando de login")
+    comando.add_argument("pessoa")
+    comando.add_argument("runtime", choices=login.RUNTIMES)
+    comando.add_argument("--json", action="store_true")
+    comando.set_defaults(func=cmd_comando)
+
+    autenticar = sub.add_parser("login", help="faz login e roda o smoke test")
+    autenticar.add_argument("pessoa")
+    autenticar.add_argument("runtime", choices=login.RUNTIMES)
+    autenticar.add_argument("--somente-mostrar", action="store_true")
+    autenticar.add_argument("--json", action="store_true")
+    autenticar.set_defaults(func=cmd_login)
+    return principal
+
+
+def main():
+    args = parser().parse_args()
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

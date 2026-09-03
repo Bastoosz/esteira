@@ -1,0 +1,69 @@
+{% macro mostrar(item, chave, alternativa=None) -%}
+  {%- set valor = item.get(chave) if item else none -%}
+  {%- if valor is none and alternativa -%}{%- set valor = item.get(alternativa) -%}{%- endif -%}
+  {{ valor if valor is not none and valor != '' else 'sem dado' }}
+{%- endmacro %}
+
+<section aria-labelledby="titulo-contas">
+  <div class="titulo-secao">
+    <h2 id="titulo-contas">Semáforo de contas</h2>
+    <span>Atualiza a cada 5 segundos</span>
+  </div>
+  {% if contas %}
+  <div class="grade-contas">
+    {% for conta in contas %}
+    <article class="cartao conta conta--{{ conta.get('estado', 'desconhecida')|lower|replace(' ', '-') }}">
+      <div class="linha-principal">
+        <strong>{{ mostrar(conta, 'pessoa', 'nome') }}</strong>
+        <span class="selo">{{ mostrar(conta, 'runtime', 'executor') }}</span>
+      </div>
+      <dl class="metricas compactas">
+        <div><dt>Estado</dt><dd>{{ conta.get('estado')|estado_pt if conta.get('estado') else 'sem dado' }}</dd></div>
+        <div><dt>De molho até</dt><dd>{{ mostrar(conta, 'cooldown_ate') }}</dd></div>
+        <div><dt>Sem cota até</dt><dd>{{ mostrar(conta, 'quota_reset_ts', 'cota_ate') }}</dd></div>
+        <div><dt>Última verificação</dt><dd>{{ mostrar(conta, 'ultimo_smoke_ts', 'ultima_verificacao') }}</dd></div>
+      </dl>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<p class="sem-dado">sem dado</p>{% endif %}
+</section>
+
+<section aria-labelledby="titulo-demandas">
+  <div class="titulo-secao"><h2 id="titulo-demandas">Demandas por estado</h2></div>
+  {% if demandas %}
+  <div class="grade-demandas">
+    {% for demanda in demandas %}
+    <article class="cartao demanda">
+      <span class="selo selo--acento">{{ demanda.get('estado')|estado_pt if demanda.get('estado') else 'sem dado' }}</span>
+      <h3>{{ mostrar(demanda, 'titulo', 'nome') }}</h3>
+      <p>{{ mostrar(demanda, 'projeto') }} · rodada {{ mostrar(demanda, 'rodada') }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<p class="sem-dado">sem dado</p>{% endif %}
+</section>
+
+<section aria-labelledby="titulo-vagas">
+  <div class="titulo-secao"><h2 id="titulo-vagas">Vagas em voo</h2></div>
+  {% if vagas %}
+  <div class="tabela-limite">
+    <table>
+      <thead><tr><th>Vaga</th><th>Executor</th><th>PID</th><th>Tempo em voo</th><th>Escopo</th><th>Tamanho do registro</th><th>Prova</th></tr></thead>
+      <tbody>
+      {% for vaga in vagas %}
+        <tr>
+          <td>{{ mostrar(vaga, 'vaga', 'id') }}</td>
+          <td>{{ mostrar(vaga, 'executor', 'tier') }}</td>
+          <td>{{ mostrar(vaga, 'pid') }}</td>
+          <td>{{ mostrar(vaga, 'tempo_em_voo', 'duracao_s') }}</td>
+          <td>{{ mostrar(vaga, 'escopo') }}</td>
+          <td>{{ mostrar(vaga, 'log_bytes', 'bytes_log') }}</td>
+          <td>{{ (vaga.get('prova') or vaga.get('veredito'))|estado_pt if (vaga.get('prova') or vaga.get('veredito')) else 'sem dado' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p class="sem-dado">sem dado</p>{% endif %}
+</section>

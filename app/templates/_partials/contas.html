@@ -1,0 +1,28 @@
+{% macro mostrar(item, chave, alternativa=None) -%}
+  {%- set valor = item.get(chave) if item else none -%}
+  {%- if valor is none and alternativa -%}{%- set valor = item.get(alternativa) -%}{%- endif -%}
+  {{ valor if valor is not none and valor != '' else 'sem dado' }}
+{%- endmacro %}
+
+<section aria-labelledby="titulo-lista-contas">
+  <div class="titulo-secao"><h2 id="titulo-lista-contas">Disponibilidade por pessoa</h2><span>Atualiza a cada 10 segundos</span></div>
+  {% if contas %}
+  <div class="tabela-limite">
+    <table>
+      <thead><tr><th>Pessoa</th><th>Executor</th><th>Estado</th><th>Última verificação</th><th>Motivo da última pausa</th><th>Reautenticação</th></tr></thead>
+      <tbody>
+      {% for conta in contas %}
+        <tr>
+          <td><strong>{{ mostrar(conta, 'pessoa', 'nome') }}</strong></td>
+          <td>{{ mostrar(conta, 'runtime', 'executor') }}</td>
+          <td><span class="selo">{{ conta.get('estado')|estado_pt if conta.get('estado') else 'sem dado' }}</span></td>
+          <td>{{ mostrar(conta, 'ultimo_smoke_ts', 'ultima_verificacao') }}</td>
+          <td>{{ mostrar(conta, 'motivo', 'motivo_cooldown') }}</td>
+          <td><span class="reservado">Reservado para a frente F</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p class="sem-dado">sem dado</p>{% endif %}
+</section>

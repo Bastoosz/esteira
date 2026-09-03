@@ -131,6 +131,26 @@ def rodar(tier, prompt, cwd, log_path, timeout_s, extra_env=None, conta=None,
     res = Resultado(codigo, time.time() - inicio, log_path, timeout, confiavel)
     res.conta = conta
     _contas.marcar_uso(conta)
+
+    # Telemetria para o hub. Best-effort, e a palavra é literal: hub fora do
+    # ar não pode derrubar a execução que ele mede. O `reporte` engole tudo e
+    # enfileira em disco; aqui o try é a segunda rede, para o caso de o
+    # próprio módulo de reporte falhar ao ser importado.
+    try:
+        from esteira.hub import reporte
+        reporte.enviar({
+            "pessoa": (conta or {}).get("pessoa_id"),
+            "runtime": tier, "tier": tier,
+            "task_id": (extra_env or {}).get("ESTEIRA_TASK"),
+            "demanda": (extra_env or {}).get("ESTEIRA_DEMANDA"),
+            "cwd": str(cwd),
+            "duracao_s": round(res.duracao_s, 1),
+            "codigo": codigo, "timeout": timeout,
+            "exit_confiavel": confiavel,
+            "log_bytes": log_path.stat().st_size if log_path.exists() else 0,
+        })
+    except Exception:
+        pass
     # Falhou logo e não foi pergunta nem bloqueio: pode ser limite ou auth.
     # Colocamos a conta de molho e avisamos o dono. Não parseamos prosa
     # para "descobrir" o motivo — não é confiável.

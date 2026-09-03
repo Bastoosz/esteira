@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Contas{% endblock %}
+{% block conteudo %}
+<section class="cabecalho-pagina">
+  <p class="sobretitulo">Acesso e disponibilidade</p>
+  <h1>Contas</h1>
+  <p>Uma linha por pessoa e executor, sem expor credenciais.</p>
+</section>
+<div id="painel-contas" hx-get="/_painel/contas" hx-trigger="every 10s" hx-swap="innerHTML">
+  {% include "_partials/contas.html" %}
+</div>
+{% endblock %}
+

@@ -10,7 +10,7 @@ O padrão já existe nesta casa e funcionou: a `sentinela.py` tentou falar com
 o n8n desligado, tratou a falha e saiu 0. O reporte copia esse padrão — e
 acrescenta fila local, para que o dado não se perca, só atrase.
 """
-import json, sys, tempfile, pathlib, time
+import json, os, sys, tempfile, pathlib, time
 
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ))
@@ -96,8 +96,38 @@ with socketserver.TCPServer(("127.0.0.1", 0), Alvo) as srv:
     checa("fila local esvaziou", not restantes, f"{len(restantes)} sobraram")
     srv.shutdown()
 
+print("== o runner REPORTA de verdade ==")
+# Passar aqui sem instrumentar o runner seria passar de graca: a prova
+# anterior so verificava que nada quebrava, e um runner que nao reporta
+# tambem nao quebra.
+import inspect
+from esteira import runner as _r
+fonte_runner = inspect.getsource(_r.rodar)
+checa("runner.rodar chama o reporte", "reporte.enviar" in fonte_runner)
+checa("o reporte esta dentro de try/except", "except Exception" in fonte_runner)
+
+recebidos.clear()
+with socketserver.TCPServer(("127.0.0.1", 0), Alvo) as srv2:
+    porta2 = srv2.server_address[1]
+    threading.Thread(target=srv2.serve_forever, daemon=True).start()
+    os.environ["ESTEIRA_HUB_URL"] = f"http://127.0.0.1:{porta2}/telemetria"
+    import importlib
+    from esteira.hub import reporte as _rep
+    importlib.reload(_rep)
+    with tempfile.TemporaryDirectory() as ws2:
+        _r.rodar("opencode", "Escreva OK em prova.txt e nada mais.",
+                 cwd=ws2, log_path=tmp / "r2.log", timeout_s=180)
+    time.sleep(0.3)
+    checa("o hub recebeu a execucao do runner", len(recebidos) >= 1, f"{len(recebidos)}")
+    if recebidos:
+        r0 = recebidos[-1]
+        checa("payload traz runtime e duracao", "runtime" in r0 and "duracao_s" in r0, str(r0)[:120])
+        proibidos = [k for k in r0 if any(x in k.lower() for x in
+                     ("token", "secret", "senha", "password", "credential", "auth"))]
+        checa("payload sem campo de segredo", not proibidos, str(proibidos))
+    srv2.shutdown()
+
 print("== o runner continua funcionando com o hub morto ==")
-import os
 os.environ["ESTEIRA_HUB_URL"] = "http://127.0.0.1:9/nao-existe"
 from esteira import runner
 import config

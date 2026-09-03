@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Esteira{% endblock %}
+{% block conteudo %}
+<section class="cabecalho-pagina">
+  <p class="sobretitulo">Operação agora</p>
+  <h1>Esteira</h1>
+  <p>Saúde das contas, fluxo de demandas e trabalho em voo.</p>
+</section>
+<div id="painel-esteira" hx-get="/_painel/esteira" hx-trigger="every 5s" hx-swap="innerHTML">
+  {% include "_partials/esteira.html" %}
+</div>
+{% endblock %}
+

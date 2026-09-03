@@ -1,0 +1,49 @@
+{% macro mostrar(item, chave, alternativa=None) -%}
+  {%- set valor = item.get(chave) if item else none -%}
+  {%- if valor is none and alternativa -%}{%- set valor = item.get(alternativa) -%}{%- endif -%}
+  {{ valor if valor is not none and valor != '' else 'sem dado' }}
+{%- endmacro %}
+
+<section aria-labelledby="titulo-comparacao">
+  <div class="titulo-secao"><h2 id="titulo-comparacao">Pessoa por executor</h2><span>Atualiza a cada 15 segundos</span></div>
+  {% if linhas %}
+  <div class="tabela-limite">
+    <table>
+      <thead><tr><th>Pessoa</th><th>Executor</th><th>Execuções</th><th>Tempo total</th><th>Falhas</th><th>Pausas</th><th>Cota conhecida</th><th>Renovação</th></tr></thead>
+      <tbody>
+      {% for linha in linhas %}
+        <tr>
+          <td><strong>{{ mostrar(linha, 'pessoa') }}</strong></td>
+          <td>{{ mostrar(linha, 'runtime', 'executor') }}</td>
+          <td>{{ mostrar(linha, 'execucoes', 'total_execucoes') }}</td>
+          <td>{{ mostrar(linha, 'tempo_total', 'duracao_total_s') }}</td>
+          <td>{{ mostrar(linha, 'falhas', 'total_falhas') }}</td>
+          <td>{{ mostrar(linha, 'cooldowns', 'pausas') }}</td>
+          <td>{{ mostrar(linha, 'quota', 'cota_conhecida') }}</td>
+          <td>{{ mostrar(linha, 'quota_reset_ts', 'renovacao') }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p class="sem-dado">sem dado</p>{% endif %}
+</section>
+
+<section aria-labelledby="titulo-serie">
+  <div class="titulo-secao"><h2 id="titulo-serie">Série por dia</h2></div>
+  {% if serie %}
+  <div class="serie">
+    {% for dia in serie %}
+    <article class="cartao dia">
+      <strong>{{ mostrar(dia, 'dia', 'data') }}</strong>
+      <dl class="metricas compactas">
+        <div><dt>Execuções</dt><dd>{{ mostrar(dia, 'execucoes', 'total') }}</dd></div>
+        <div><dt>Tempo total</dt><dd>{{ mostrar(dia, 'tempo_total', 'duracao_total_s') }}</dd></div>
+        <div><dt>Falhas</dt><dd>{{ mostrar(dia, 'falhas') }}</dd></div>
+      </dl>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<p class="sem-dado">sem dado</p>{% endif %}
+</section>
+

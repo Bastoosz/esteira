@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Consumo{% endblock %}
+{% block conteudo %}
+<section class="cabecalho-pagina">
+  <p class="sobretitulo">Comparação entre pessoas</p>
+  <h1>Consumo</h1>
+  <p>Volume e confiabilidade por pessoa e executor.</p>
+</section>
+<div id="painel-consumo" hx-get="/_painel/consumo" hx-trigger="every 15s" hx-swap="innerHTML">
+  {% include "_partials/consumo.html" %}
+</div>
+{% endblock %}
+
