@@ -282,3 +282,42 @@ def test_escrita_de_estado_e_atomica(tmp_path, monkeypatch):
     assert not list(tmp_path.glob("*.tmp")), "o temporário tem que sumir"
     import json
     assert json.loads(maestro.ESTADO.read_text())["vagas"][0]["vaga"] == 1
+
+
+def test_oraculo_nao_acusa_o_executor_do_que_nao_e_dele():
+    """
+    Regressão dos quatro falsos positivos de 03/09. A foto do repo inteiro
+    só vê antes e depois — nunca autor. Ela acusou o executor de:
+
+      1. escrita do próprio maestro (estado.json, logs de outras vagas)
+      2. CONTINUAR.md, que é o maestro editando durante o despacho
+      3. o RELATORIO-*.md que TODO briefing manda escrever
+      4. o escopo de uma vaga vizinha (F1 e G1 foram os dois acusados de
+         criar app/, que era do E1 rodando ao lado)
+
+    Rastrear vizinho por timing não fechou: o vizinho pode começar depois da
+    reserva ou terminar antes da colheita — as duas formas aconteceram. A
+    regra que fecha é a fila: escopo declarado por alguém é trabalho de
+    alguém. O que sobra para acusar é o que NINGUÉM declarou.
+    """
+    from esteira import maestro
+    R = maestro.config.BASE_DIR
+
+    nao_e_violacao = [
+        (str(R / "orquestracao/estado.json"), "escrita do maestro"),
+        (str(R / "CONTINUAR.md"), "documento que o maestro mantém"),
+        (str(R / "orquestracao/RELATORIO-D1.md"), "relatório que o briefing pede"),
+        (str(R / "orquestracao/provas/d1.py"), "prova, que é contrato do maestro"),
+    ]
+    for caminho, porque in nao_e_violacao:
+        assert maestro.fora_do_escopo([caminho], "esteira/hub/**") == [], porque
+
+    # escopo de outro item da fila é trabalho legítimo de alguém
+    assert maestro.fora_do_escopo([str(R / "app/janela.py")], "esteira/hub/semear.py",
+                                  escopos_vizinhos=("app/janela.py",)) == []
+
+    # e o que ninguém declarou CONTINUA sendo acusado — o dia em que isto
+    # passar, a proteção de escopo virou decoração
+    assert maestro.fora_do_escopo([str(R / "esteira/worker.py")], "app/**",
+                                  escopos_vizinhos=("refs/**",)) == ["esteira/worker.py"]
+    assert maestro.fora_do_escopo(["/home/alguem/bin/x"], "app/**") == ["/home/alguem/bin/x"]

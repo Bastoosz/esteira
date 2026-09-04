@@ -93,6 +93,14 @@ def foto(padrao, raiz=None):
 # não é vista. Se algum dia isso importar, a saída é comparar por dono do
 # arquivo, não por caminho.
 ESCRITA_DO_MAESTRO = (
+    # documentos que o maestro mantém à mão, durante o despacho
+    "CONTINUAR.md",
+    "RELATORIO.md",
+    "orquestracao/PLANO",
+    "orquestracao/briefings/",
+    "orquestracao/provas/",
+    "orquestracao/spikes/",
+    "orquestracao/roteiros/",
     "orquestracao/estado.json",
     "orquestracao/fila.jsonl",
     "orquestracao/despachos.jsonl",
@@ -467,11 +475,18 @@ def dispatch(task_id, vaga=None, timeout_s=None):
     mudou, sumiu = diff_foto(antes, depois)
     mudou_repo, sumiu_repo = diff_foto(antes_repo, foto("**/*"))
     # `sumiu` também conta: apagar tudo dentro do escopo era colhido como FEITO.
-    # Quem entrou em voo DEPOIS de mim também escreve na minha janela.
-    vizinhos_agora = [x["escopo"] for x in ler_estado()["vagas"]
-                      if x["task_id"] and x["vaga"] != vaga and x["escopo"]]
+    # Rastrear "quem estava em voo" por timing não fecha: o vizinho pode ter
+    # começado depois de mim (e aí não estava na reserva) ou terminado antes
+    # de eu colher (e aí saiu do estado). Medido nas duas formas em 03/09.
+    #
+    # A regra que fecha é mais simples e não depende de relógio: caminho que
+    # casa com o escopo declarado de QUALQUER item da fila é trabalho legítimo
+    # de alguém. O que este oráculo tem que pegar é o caminho que ninguém
+    # declarou — e era exatamente o caso do resíduo em ~/bin.
+    declarados = {i.get("escopo") for i in ler_fila() if i.get("escopo")}
+    declarados.discard(it["escopo"])
     fora = fora_do_escopo(mudou_repo + sumiu_repo, it["escopo"],
-                          escopos_vizinhos=set(vizinhos) | set(vizinhos_agora))
+                          escopos_vizinhos=declarados | set(vizinhos))
 
     reg = {
         "ts": agora(), "task_id": task_id, "vaga": vaga, "tier": it["tier"],
